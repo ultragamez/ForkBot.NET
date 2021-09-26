@@ -195,32 +195,6 @@ namespace SysBot.Pokemon
             return "";
         }
 
-        public static void HandleTradedCatches(ulong id, bool delete, TCUser? user = null)
-        {
-            bool exists = TradeCordHelper.TradeCordTrades.TryGetValue(id, out int catchID);
-            if (exists && user == null)
-            {
-                if (delete)
-                {
-                    RemoveRows(id, "catches", $"and id = {catchID}");
-                    RemoveRows(id, "binary_catches", $"and id = {catchID}");
-                }
-                else UpdateRows(id, "catches", "was_traded = 0", $"and id = {catchID}");
-                TradeCordHelper.TradeCordTrades.Remove(id);
-            }
-            else if (!exists && user != null)
-            {
-                var traded = user.Catches.ToList().FindAll(x => x.Value.Traded == true);
-                int[] arr = new int[traded.Count];
-                for (int i = 0; i < traded.Count; i++)
-                {
-                    arr[i] = traded[i].Value.ID;
-                    user.Catches[traded[i].Key].Traded = false;
-                }
-                UpdateRows(id, "catches", "was_traded = 0", $"and id in ({string.Join(",", arr)})");
-            }
-        }
-
         private void InitializeNewUser(ulong id, string name)
         {
             using var tran = Connection.BeginTransaction();
@@ -244,14 +218,14 @@ namespace SysBot.Pokemon
             tran.Commit();
         }
 
-        private static void UpdateRows(ulong id, string table, string values, string filter = "")
+        protected static void UpdateRows(ulong id, string table, string values, string filter = "")
         {
             var cmd = Connection.CreateCommand();
             cmd.CommandText = $"update {table} set {values} where user_id = {id} {filter}";
             cmd.ExecuteNonQuery();
         }
 
-        private static void RemoveRows(ulong id, string table, string filter = "")
+        protected static void RemoveRows(ulong id, string table, string filter = "")
         {
             var cmd = Connection.CreateCommand();
             cmd.CommandText = $"delete from {table} where user_id = {id} {filter}";

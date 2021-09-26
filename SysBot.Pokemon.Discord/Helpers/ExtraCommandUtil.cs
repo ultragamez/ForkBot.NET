@@ -66,6 +66,7 @@ namespace SysBot.Pokemon.Discord
             DictWipeRunning = true;
             while (true)
             {
+                await Task.Delay(10_000).ConfigureAwait(false);
                 for (int i = 0; i < ReactMessageDict.Count; i++)
                 {
                     var entry = ReactMessageDict.ElementAt(i);
@@ -73,8 +74,6 @@ namespace SysBot.Pokemon.Discord
                     if (delta > 90.0)
                         ReactMessageDict.Remove(entry.Key);
                 }
-
-                await Task.Delay(10_000).ConfigureAwait(false);
             }
         }
 
@@ -123,7 +122,7 @@ namespace SysBot.Pokemon.Discord
             if (msg.Embeds.Count < 1)
                 return;
 
-            bool invoker = msg.Embeds.First().Fields[0].Name.Contains(user.Username);
+            bool invoker = msg.Embeds.First().Fields[0].Name == ReactMessageDict[user.Id].Embed.Fields[0].Name;
             if (!invoker)
                 return;
 
@@ -228,7 +227,20 @@ namespace SysBot.Pokemon.Discord
             List<int> reactList = new();
             for (int i = 0; i < 5; i++)
                 reactList.Add(msg.Reactions.Values.ToArray()[i].ReactionCount);
-            return reactList.IndexOf(reactList.Max());
+
+            var topVote = reactList.Max();
+            bool tieBreak = reactList.FindAll(x => x == topVote).Count > 1;
+            if (tieBreak)
+            {
+                List<int> indexes = new();
+                for (int i = 0; i < reactList.Count; i++)
+                {
+                    if (reactList[i] == topVote)
+                        indexes.Add(i);
+                }
+                return indexes[new Random().Next(indexes.Count)];
+            }
+            return reactList.IndexOf(topVote);
         }
 
         public async Task EmbedUtil(SocketCommandContext ctx, string name, string value, EmbedBuilder? embed = null)

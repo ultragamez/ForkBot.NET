@@ -71,7 +71,7 @@ namespace SysBot.Base
             return Task.Run(() =>
             {
                 Send(SwitchCommand.Screengrab(false));
-                return Read();
+                return GetScreenshot();
             }, token);
         }
     }

@@ -140,7 +140,7 @@ namespace SysBot.Pokemon.Discord
                     var la = new LegalityAnalysis(result.EggPoke);
                     if (!la.Valid)
                     {
-                        await Context.Channel.SendPKMAsync(result.EggPoke, $"Something went wrong!\n{ReusableActions.GetFormattedShowdownText(result.EggPoke)}").ConfigureAwait(false);
+                        await Context.Channel.SendPKMAsync(result.EggPoke, $"{result.Message}\n{ReusableActions.GetFormattedShowdownText(result.EggPoke)}").ConfigureAwait(false);
                         return;
                     }
                 }

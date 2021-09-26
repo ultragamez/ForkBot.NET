@@ -10,8 +10,11 @@ namespace SysBot.Pokemon
     public class TradeExtensions
     {
         private static readonly object _syncLog = new();
-        public static int XCoordStart = 0;
-        public static int YCoordStart = 0;
+        public static bool CoordinatesSet = false;
+        public static ulong CoordinatesOffset = 0;
+        public static byte[] XCoords = { 0 };
+        public static byte[] YCoords = { 0 };
+        public static byte[] ZCoords = { 0 };
         public static readonly string[] Characteristics =
         {
             "Takes plenty of siestas",
@@ -76,11 +79,10 @@ namespace SysBot.Pokemon
             pk.Markings = new int[] { 0, 0, 0, 0, 0, 0, 0, 0 };
             pk.ClearRecordFlags();
             pk.ClearRelearnMoves();
-            pk.Moves = new int[] { 0, 0, 0, 0 };
             var la = new LegalityAnalysis(pk);
             var enc = la.EncounterMatch;
             pk.CurrentFriendship = enc is EncounterStatic s ? s.EggCycles : pk.PersonalInfo.HatchCycles;
-            pk.RelearnMoves = MoveBreed.GetExpectedMoves(pk.RelearnMoves, la.EncounterMatch);
+            pk.RelearnMoves = MoveBreed.GetExpectedMoves(pk.Moves, la.EncounterMatch);
             pk.Moves = pk.RelearnMoves;
             pk.Move1_PPUps = pk.Move2_PPUps = pk.Move3_PPUps = pk.Move4_PPUps = 0;
             pk.SetMaximumPPCurrent(pk.Moves);

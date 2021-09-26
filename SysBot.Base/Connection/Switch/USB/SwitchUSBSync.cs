@@ -26,14 +26,14 @@ namespace SysBot.Base
         public ulong GetMainNsoBase()
         {
             Send(SwitchCommand.GetMainNsoBase(false));
-            byte[] baseBytes = Read();
+            byte[] baseBytes = ReadResponse(8);
             return BitConverter.ToUInt64(baseBytes, 0);
         }
 
         public ulong GetHeapBase()
         {
             Send(SwitchCommand.GetHeapBase(false));
-            byte[] baseBytes = Read();
+            byte[] baseBytes = ReadResponse(8);
             return BitConverter.ToUInt64(baseBytes, 0);
         }
     }

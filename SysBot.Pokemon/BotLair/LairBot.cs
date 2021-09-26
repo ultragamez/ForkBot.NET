@@ -153,7 +153,7 @@ namespace SysBot.Pokemon
                 {
                     await Click(A, 0_500, token).ConfigureAwait(false);
                     if (LairBoss.Species == 0)
-                        LairBoss = await ReadUntilPresentAbsolute(await ParsePointer("[[[[[[main+26365B8]+68]+78]+88]+D08]+950]+D0", token).ConfigureAwait(false), 0_500, 0_200, token).ConfigureAwait(false);
+                        LairBoss = await ReadUntilPresentAbsolute(await ParsePointer("[[[[[[main+26365B8]+68]+78]+88]+D08]+950]+D0", token).ConfigureAwait(false), 0_500, 0_200, token).ConfigureAwait(false) ?? new();
                 }
 
                 if (raidCount == 1 && Settings.UseStopConditionsPathReset)

@@ -69,15 +69,15 @@ namespace SysBot.Pokemon
             return new TCRng()
             {
                 CatchRNG = Random.Next(101),
-                ShinyRNG = Random.Next(101),
+                ShinyRNG = Random.Next(151),
                 EggRNG = Random.Next(101),
-                EggShinyRNG = Random.Next(101),
+                EggShinyRNG = Random.Next(151),
                 GmaxRNG = Random.Next(101),
                 CherishRNG = Random.Next(101),
                 SpeciesRNG = enumVals[Random.Next(enumVals.Length)],
                 SpeciesBoostRNG = Random.Next(101),
                 ItemRNG = Random.Next(101),
-                ShinyCharmRNG = Random.Next(1, 4097),
+                ShinyCharmRNG = Random.Next(4097),
             };
         }
 
@@ -214,64 +214,49 @@ namespace SysBot.Pokemon
             return (PK8)pkm;
         }
 
-        public PK8 EggRngRoutine(PK8 first, PK8 second, string trainerInfo, int evo1, int evo2, bool star, bool square)
+        public PK8 EggRngRoutine(EvoCriteria evo1, EvoCriteria evo2, int ball1, int ball2, string trainerInfo, bool star, bool square)
         {
-            var ballRng = $"\nBall: {(Ball)Random.Next(2, 27)}";
-            var ballRngDC = Random.Next(1, 3);
+            var shinyRng = square ? "\nShiny: Square" : star ? "\nShiny: Star" : "";
             var enumVals = (int[])Enum.GetValues(typeof(ValidEgg));
-            bool specificEgg = (evo1 == evo2 && Breeding.CanHatchAsEgg(evo1)) || ((evo1 == 132 || evo2 == 132) && (Breeding.CanHatchAsEgg(evo1) || Breeding.CanHatchAsEgg(evo2))) || ((evo1 == 29 || evo1 == 32) && (evo2 == 29 || evo2 == 32));
-            var dittoLoc = DittoSlot(evo1, evo2);
-            var speciesRng = specificEgg ? SpeciesName.GetSpeciesNameGeneration(dittoLoc == 1 ? evo2 : evo1, 2, 8) : SpeciesName.GetSpeciesNameGeneration(enumVals[Random.Next(enumVals.Length)], 2, 8);
+            var dittoLoc = DittoSlot(evo1.Species, evo2.Species);
+            bool random = evo1.Species == 132 && evo2.Species == 132;
+            var speciesRng = random ? SpeciesName.GetSpeciesNameGeneration(enumVals[Random.Next(enumVals.Length)], 2, 8) : SpeciesName.GetSpeciesNameGeneration(dittoLoc == 1 ? evo2.Species : evo1.Species, 2, 8);
             var speciesRngID = SpeciesName.GetSpeciesID(speciesRng);
-            FormOutput(speciesRngID, 0, out string[] forms);
+
+            var ballRngDC = Random.Next(1, 3);
+            if ((ballRngDC == 1 && (ball1 == (int)Ball.Master || ball1 == (int)Ball.Cherish)) || (ballRngDC == 2 && (ball2 == (int)Ball.Master || ball2 == (int)Ball.Cherish)))
+                ballRngDC = 0;
+
+            var ballRng = ballRngDC == 1 ? $"\nBall: {(Ball)ball1}" : ballRngDC == 2 ? $"\nBall: {(Ball)ball2}" : $"\nBall: {(Ball)Random.Next(2, 27)}";
+            if (Pokeball.Contains(speciesRngID) || ballRng.Contains("Cherish") || ballRng.Contains("Master"))
+                ballRng = "\nBall: Poke";
 
             if (speciesRng.Contains("Nidoran"))
                 speciesRng = speciesRng.Remove(speciesRng.Length - 1);
 
+            FormOutput(speciesRngID, 0, out string[] forms);
+            var formRng = Random.Next(2) == 0 ? evo1.Form : evo2.Form;
             string formHelper = speciesRng switch
             {
-                "Indeedee" => _ = specificEgg && dittoLoc == 1 ? FormOutput(876, second.Form, out _) : specificEgg && dittoLoc == 2 ? FormOutput(876, first.Form, out _) : FormOutput(876, Random.Next(2), out _),
-                "Nidoran" => _ = specificEgg && dittoLoc == 1 ? (evo2 == 32 ? "-M" : "-F") : specificEgg && dittoLoc == 2 ? (evo1 == 32 ? "-M" : "-F") : (Random.Next(2) == 0 ? "-M" : "-F"),
-                "Meowth" => _ = FormOutput(speciesRngID, specificEgg && (first.Species == 863 || second.Species == 863) ? 2 : specificEgg && dittoLoc == 1 ? second.Form : specificEgg && dittoLoc == 2 ? first.Form : Random.Next(forms.Length), out _),
-                "Yamask" => FormOutput(speciesRngID, specificEgg && (first.Species == 867 || second.Species == 867) ? 1 : specificEgg && dittoLoc == 1 ? second.Form : specificEgg && dittoLoc == 2 ? first.Form : Random.Next(forms.Length), out _),
-                "Zigzagoon" => _ = FormOutput(speciesRngID, specificEgg && (first.Species == 862 || second.Species == 862) ? 1 : specificEgg && dittoLoc == 1 ? second.Form : specificEgg && dittoLoc == 2 ? first.Form : Random.Next(forms.Length), out _),
-                "Farfetch’d" => _ = FormOutput(speciesRngID, specificEgg && (first.Species == 865 || second.Species == 865) ? 1 : specificEgg && dittoLoc == 1 ? second.Form : specificEgg && dittoLoc == 2 ? first.Form : Random.Next(forms.Length), out _),
-                "Corsola" => _ = FormOutput(speciesRngID, specificEgg && (first.Species == 864 || second.Species == 864) ? 1 : specificEgg && dittoLoc == 1 ? second.Form : specificEgg && dittoLoc == 2 ? first.Form : Random.Next(forms.Length), out _),
-                "Sinistea" or "Milcery" => "",
-                _ => FormOutput(speciesRngID, specificEgg && first.Form == second.Form ? first.Form : specificEgg && dittoLoc == 1 ? second.Form : specificEgg && dittoLoc == 2 ? first.Form : Random.Next(forms.Length), out _),
+                "Nidoran" => _ = !random && dittoLoc == 1 ? (evo2.Species == 32 ? "-M" : "-F") : !random && dittoLoc == 2 ? (evo1.Species == 32 ? "-M" : "-F") : (Random.Next(2) == 0 ? "-M" : "-F"),
+                _ => FormOutput(speciesRngID, !random && ((!random && dittoLoc == 2) || (evo1.Form == evo2.Form)) ? evo1.Form : !random && dittoLoc == 1 ? evo2.Form : !random ? formRng : Random.Next(forms.Length), out _),
             };
 
-            var set = new ShowdownSet($"Egg({speciesRng}{formHelper}){(ballRng.Contains("Cherish") || Pokeball.Contains(SpeciesName.GetSpeciesID(speciesRng)) ? "\nBall: Poke" : ballRng)}\n{trainerInfo}");
+            bool rotom = speciesRngID == (int)Species.Rotom && formHelper != "";
+            int formIndex = forms.ToList().IndexOf(formHelper.Replace("-", ""));
+            if (formHelper != "" && (!Breeding.CanHatchAsEgg(speciesRngID, formIndex, 8) || FormInfo.IsBattleOnlyForm(speciesRngID, formIndex, 8) || rotom))
+                formHelper = "";
+
+            var set = new ShowdownSet($"Egg({speciesRng}{formHelper}){ballRng}{shinyRng}\n{trainerInfo}");
             var template = AutoLegalityWrapper.GetTemplate(set);
             var sav = AutoLegalityWrapper.GetTrainerInfo(8);
             var pk = (PK8)sav.GetLegal(template, out _);
-
-            if (!specificEgg && pk.PersonalInfo.HasForms && pk.Species != (int)Species.Sinistea && pk.Species != (int)Species.Indeedee)
-                pk.Form = Random.Next(pk.PersonalInfo.FormCount);
-            if (pk.Species == (int)Species.Rotom)
-                pk.Form = 0;
-            if (FormInfo.IsBattleOnlyForm(pk.Species, pk.Form, pk.Format))
-                pk.Form = FormInfo.GetOutOfBattleForm(pk.Species, pk.Form, pk.Format);
-
-            if (ballRngDC == 1)
-                pk.Ball = first.Ball;
-            else if (ballRngDC == 2)
-                pk.Ball = second.Ball;
 
             TradeExtensions.EggTrade(pk);
             pk.SetAbilityIndex(Random.Next(3));
             pk.Nature = Random.Next(25);
             pk.StatNature = pk.Nature;
             pk.IVs = pk.SetRandomIVs(4);
-
-            if (!pk.ValidBall())
-                BallApplicator.ApplyBallLegalRandom(pk);
-
-            if (square)
-                CommonEdits.SetShiny(pk, Shiny.AlwaysSquare);
-            else if (star)
-                CommonEdits.SetShiny(pk, Shiny.AlwaysStar);
-
             return pk;
         }
 
@@ -554,25 +539,21 @@ namespace SysBot.Pokemon
                 case EvolutionType.LevelUpFriendshipMorning:
                 case EvolutionType.LevelUpFriendshipNight:
                     {
+                        pk.CurrentLevel++;
                         if (pk.CurrentFriendship < 179)
                         {
                             msg = "Your Pokémon isn't friendly enough yet.";
                             return false;
                         }
-
-                        if (pk.CurrentLevel == pk.Met_Level)
-                            pk.CurrentLevel++;
                     }; break;
                 case EvolutionType.LevelUpAffection50MoveType:
                     {
+                        pk.CurrentLevel++;
                         if (pk.CurrentFriendship < 250)
                         {
                             msg = "Your Pokémon isn't affectionate enough yet.";
                             return false;
                         }
-
-                        if (pk.CurrentLevel == pk.Met_Level)
-                            pk.CurrentLevel++;
                     }; break;
                 case EvolutionType.UseItemFemale:
                 case EvolutionType.LevelUpFemale:
@@ -583,7 +564,7 @@ namespace SysBot.Pokemon
                             return false;
                         }
 
-                        if (result.EvoType == EvolutionType.LevelUpFemale && pk.CurrentLevel == pk.Met_Level)
+                        if (result.EvoType == EvolutionType.LevelUpFemale)
                             pk.CurrentLevel++;
                     }; break;
                 case EvolutionType.UseItemMale:
@@ -595,10 +576,10 @@ namespace SysBot.Pokemon
                             return false;
                         }
 
-                        if (result.EvoType == EvolutionType.LevelUpMale && pk.CurrentLevel == pk.Met_Level)
+                        if (result.EvoType == EvolutionType.LevelUpMale)
                             pk.CurrentLevel++;
                     }; break;
-                case EvolutionType.LevelUpKnowMove or EvolutionType.LevelUp when pk.CurrentLevel == pk.Met_Level: pk.CurrentLevel++; break;
+                case EvolutionType.LevelUpKnowMove or EvolutionType.LevelUp: pk.CurrentLevel++; break;
             };
 
             if (pk.Species == (int)Species.Nincada)
@@ -608,13 +589,17 @@ namespace SysBot.Pokemon
                     return false;
             }
 
+            bool applyMoves = false;
             if (pk.Generation == 8 && ((pk.Species == (int)Species.Koffing && result.EvolvedForm == 0) || ((pk.Species == (int)Species.Exeggcute || pk.Species == (int)Species.Pikachu || pk.Species == (int)Species.Cubone) && result.EvolvedForm > 0)))
             {
+                applyMoves = true;
                 int version = pk.Version;
                 pk.Version = (int)GameVersion.UM;
                 pk.Met_Location = 78; // Paniola Ranch
                 pk.Met_Level = 1;
                 pk.SetEggMetData(GameVersion.UM, (GameVersion)version);
+                var sav = new SimpleTrainerInfo() { OT = pk.OT_Name, Gender = pk.OT_Gender, Generation = version, Language = pk.Language, SID = pk.TrainerSID7, TID = pk.TrainerID7 };
+                pk.SetHandlerandMemory(sav);
                 pk.HeightScalar = 0;
                 pk.WeightScalar = 0;
                 if (pk.Ball == (int)Ball.Sport || (pk.WasEgg && pk.Ball == (int)Ball.Master))
@@ -626,18 +611,19 @@ namespace SysBot.Pokemon
             pk.Form = result.EvolvedForm;
             pk.SetAbilityIndex(index);
             pk.Nickname = pk.IsNicknamed ? pk.Nickname : pk.ClearNickname();
+            if (pk.Species == (int)Species.Runerigus)
+                pk.SetSuggestedFormArgument((int)Species.Yamask);
 
             var la = new LegalityAnalysis(pk);
-            if (result.EvoType == EvolutionType.LevelUpKnowMove)
+            if (!la.Valid && result.EvoType == EvolutionType.LevelUpKnowMove || applyMoves)
             {
-                pk.Moves = la.GetSuggestedCurrentMoves();
-                pk.RelearnMoves = (int[])la.GetSuggestedRelearnMoves(la.EncounterMatch);
+                EdgeCaseRelearnMoves(pk, la);
                 la = new LegalityAnalysis(pk);
             }
 
             if (!la.Valid)
             {
-                msg = $"Failed to evolve: \n{la.Report()}";
+                msg = $"Failed to evolve! Legality report: \n{la.Report()}\n\nWere all evolution requirements and conditions satisfied?";
                 return false;
             }
 
@@ -645,6 +631,35 @@ namespace SysBot.Pokemon
                 pk.HeldItem = 0;
 
             return true;
+        }
+
+        private void EdgeCaseRelearnMoves(PK8 pk, LegalityAnalysis la)
+        {
+            if (pk.Met_Location == 162 || pk.Met_Location == 244)
+                return;
+
+            pk.Moves = la.GetMoveSet();
+            pk.RelearnMoves = (int[])pk.GetSuggestedRelearnMoves(la.EncounterMatch);
+            var indexEmpty = pk.RelearnMoves.ToList().IndexOf(0);
+            if (indexEmpty != -1)
+            {
+                int move = pk.Species switch
+                {
+                    (int)Species.Tangrowth when !pk.RelearnMoves.Contains(246) => 246, // Ancient Power
+                    (int)Species.Grapploct when !pk.RelearnMoves.Contains(269) => 269, // Taunt
+                    (int)Species.Lickilicky when !pk.RelearnMoves.Contains(205) => 205, // Rollout
+                    _ => 0,
+                };
+
+                switch (indexEmpty)
+                {
+                    case 0: pk.RelearnMove1 = move; break;
+                    case 1: pk.RelearnMove2 = move; break;
+                    case 2: pk.RelearnMove3 = move; break;
+                    case 3: pk.RelearnMove4 = move; break;
+                };
+            }
+            pk.HealPP();
         }
 
         private EvolutionTemplate EdgeCaseEvolutions(List<EvolutionTemplate> evoList, PK8 pk, int alcremieForm, int form, int item, TimeOfDay tod)
@@ -684,6 +699,8 @@ namespace SysBot.Pokemon
             name = name.Substring(0, 1).ToUpper().Trim() + name[1..].ToLower().Trim();
             if (name.Contains("'"))
                 name = name.Replace("'", "’");
+            else if (name.Contains(" - "))
+                name = name.Replace(" - ", "-");
 
             if (name.Contains('-'))
             {
@@ -702,32 +719,68 @@ namespace SysBot.Pokemon
             return name;
         }
 
-        public bool CanGenerateEgg(int species1, int species2, out int evo1, out int evo2)
+        public bool CanGenerateEgg(TCDaycare dc, ulong userID, out EvoCriteria criteria1, out EvoCriteria criteria2, out int ball1, out int ball2)
         {
-            evo1 = evo2 = 0;
-            if (species1 == 0 || species2 == 0)
+            criteria1 = criteria2 = new(0, 0);
+            ball1 = ball2 = 0;
+            if (dc.Species1 == 0 || dc.Species2 == 0)
                 return false;
 
-            var sav = AutoLegalityWrapper.GetTrainerInfo(8);
-            var name = SpeciesName.GetSpeciesNameGeneration(species1, 2, 8);
-            var set = new ShowdownSet(name);
-            var pkm1 = sav.GetLegal(AutoLegalityWrapper.GetTemplate(set), out _);
-            evo1 = EvolutionTree.GetEvolutionTree(8).GetValidPreEvolutions(pkm1, 100).LastOrDefault().Species;
+            var pk1 = GetLookupAsClassObject<PK8>(userID, "binary_catches", $"and id = {dc.ID1}");
+            var pk2 = GetLookupAsClassObject<PK8>(userID, "binary_catches", $"and id = {dc.ID2}");
+            if (pk1.IsEgg || pk2.IsEgg)
+                return false;
 
-            name = SpeciesName.GetSpeciesNameGeneration(species2, 2, 8);
-            set = new ShowdownSet(name);
-            var pkm2 = sav.GetLegal(AutoLegalityWrapper.GetTemplate(set), out _);
-            evo2 = EvolutionTree.GetEvolutionTree(8).GetValidPreEvolutions(pkm2, 100).LastOrDefault().Species;
+            var tree1 = EvolutionTree.GetEvolutionTree(pk1, 8);
+            var tree2 = EvolutionTree.GetEvolutionTree(pk2, 8);
+            bool sameTree = tree1.IsSpeciesDerivedFrom(pk1.Species, pk1.Form, pk2.Species, pk2.Form) || tree2.IsSpeciesDerivedFrom(pk2.Species, pk2.Form, pk1.Species, pk1.Form);
+            bool breedable = (Breeding.CanHatchAsEgg(pk1.Species) || pk1.Species == 132) && (Breeding.CanHatchAsEgg(pk2.Species) || pk2.Species == 132);
+            if (!sameTree && !breedable)
+                return false;
 
-            if (evo1 == 132 && evo2 == 132)
-                return true;
-            else if (evo1 == evo2 && Breeding.CanHatchAsEgg(evo1))
-                return true;
-            else if ((evo1 == 132 || evo2 == 132) && (Breeding.CanHatchAsEgg(evo1) || Breeding.CanHatchAsEgg(evo2)))
-                return true;
-            else if ((evo1 == 29 && evo2 == 32) || (evo1 == 32 && evo2 == 29))
-                return true;
-            else return false;
+            List<EvoCriteria> criteria = EggEvoCriteria(pk1, pk2);
+            if (criteria.Count < 2)
+                return false;
+
+            criteria1 = criteria[0];
+            criteria2 = criteria[1];
+            ball1 = pk1.Ball;
+            ball2 = pk2.Ball;
+            return true;
+        }
+
+        private List<EvoCriteria> EggEvoCriteria(PKM pk1, PKM pk2)
+        {
+            List<PKM> list = new() { pk1, pk2 };
+            List<EvoCriteria> criteriaList = new();
+            for (int i = 0; i < list.Count; i++)
+            {
+                list[i].Form = list[i].Species switch
+                {
+                    (int)Species.Sinistea or (int)Species.Polteageist or (int)Species.Rotom or (int)Species.Pikachu or (int)Species.Raichu or (int)Species.Marowak or (int)Species.Exeggutor or (int)Species.Weezing or (int)Species.Alcremie => 0,
+                    _ => list[i].Form,
+                };
+
+                int form = list[i].Species switch
+                {
+                    (int)Species.Obstagoon or (int)Species.Cursola or (int)Species.Runerigus or (int)Species.Sirfetchd => 1,
+                    (int)Species.Perrserker => 2,
+                    (int)Species.Lycanroc when list[i].Form == 2 => 1,
+                    (int)Species.Lycanroc when list[i].Form == 1 => 0,
+                    (int)Species.Slowbro when list[i].Form == 2 => 1,
+                    _ => -1,
+                };
+
+                EvoCriteria? evo = default;
+                var preEvos = EvolutionTree.GetEvolutionTree(8).GetValidPreEvolutions(list[i], 100, 8, true).FindAll(x => x.MinLevel == 1);
+                if (preEvos.Count == 0)
+                    continue;
+                else evo = preEvos.LastOrDefault(x => x.Form == (form > -1 ? form : list[i].Form));
+
+                if (evo != default)
+                    criteriaList.Add(evo);
+            }
+            return criteriaList;
         }
 
         public List<string> GetMissingDexEntries(int[] entries, List<int> dex)
@@ -749,7 +802,7 @@ namespace SysBot.Pokemon
             string[] mewOverride = { "\n.Version=34", "\n.Version=3" };
             string[] mewEmeraldBalls = { "Poke", "Great", "Ultra", "Dive", "Luxury", "Master", "Nest", "Net", "Premier", "Repeat", "Timer" };
             int[] ignoreForm = { 382, 383, 646, 716, 717, 778, 800, 845, 875, 877, 888, 889, 890, 898 };
-            Shiny shiny = Rng.ShinyRNG >= 100 - settings.SquareShinyRate ? Shiny.AlwaysSquare : Rng.ShinyRNG >= 100 - settings.StarShinyRate ? Shiny.AlwaysStar : Shiny.Never;
+            Shiny shiny = Rng.ShinyRNG >= 150 - settings.SquareShinyRate ? Shiny.AlwaysSquare : Rng.ShinyRNG >= 150 - settings.StarShinyRate ? Shiny.AlwaysStar : Shiny.Never;
             string shinyType = shiny == Shiny.AlwaysSquare ? "\nShiny: Square" : shiny == Shiny.AlwaysStar ? "\nShiny: Star" : "";
 
             if (Rng.SpeciesRNG == (int)Species.NidoranF || Rng.SpeciesRNG == (int)Species.NidoranM)
@@ -834,6 +887,8 @@ namespace SysBot.Pokemon
         {
             string type = string.Empty;
             var enumVals = (int[])Enum.GetValues(typeof(Gen8Dex));
+            var enumEggs = (int[])Enum.GetValues(typeof(ValidEgg));
+            var halloween = (string[])Enum.GetNames(typeof(Halloween));
             var eventType = $"{settings.PokeEventType}";
             mg = default;
             form = -1;
@@ -844,16 +899,16 @@ namespace SysBot.Pokemon
                 if (settings.PokeEventType == PokeEventType.EventPoke)
                     mg = MysteryGiftRng(settings);
 
-                if (settings.PokeEventType != PokeEventType.Legends && settings.PokeEventType != PokeEventType.EventPoke && settings.PokeEventType != PokeEventType.RodentLite)
+                if ((int)settings.PokeEventType <= 17)
                 {
                     var temp = TradeCordPK(Rng.SpeciesRNG);
                     for (int i = 0; i < temp.PersonalInfo.FormCount; i++)
                     {
-                        var isPresent = PersonalTable.SWSH.GetFormEntry(temp.Species, i).IsFormWithinRange(i);
+                        temp.Form = i;
+                        var isPresent = PersonalTable.SWSH.GetFormEntry(temp.Species, temp.Form).IsFormWithinRange(i);
                         if (!isPresent)
                             continue;
 
-                        temp.Form = i;
                         var type1 = GameInfo.Strings.Types[temp.PersonalInfo.Type1];
                         var type2 = GameInfo.Strings.Types[temp.PersonalInfo.Type2];
                         type = type1 == eventType ? type1 : type2 == eventType ? type2 : "";
@@ -862,6 +917,11 @@ namespace SysBot.Pokemon
                             break;
                     }
                 }
+                else if (settings.PokeEventType == PokeEventType.Halloween)
+                {
+                    if (Rng.SpeciesRNG == (int)Species.Corsola || Rng.SpeciesRNG == (int)Species.Marowak || Rng.SpeciesRNG == (int)Species.Moltres)
+                        form = 1;
+                }
 
                 match = settings.PokeEventType switch
                 {
@@ -869,6 +929,8 @@ namespace SysBot.Pokemon
                     PokeEventType.RodentLite => RodentLite.Contains(Rng.SpeciesRNG),
                     PokeEventType.ClickbaitArticle => ClickbaitArticle.Contains(Rng.SpeciesRNG),
                     PokeEventType.EventPoke => mg != default,
+                    PokeEventType.Babies => enumEggs.Contains(Rng.SpeciesRNG),
+                    PokeEventType.Halloween => halloween.Contains(SpeciesName.GetSpeciesNameGeneration(Rng.SpeciesRNG, 2, 8)),
                     _ => type == eventType,
                 };
                 if (!match)
@@ -884,7 +946,7 @@ namespace SysBot.Pokemon
             MysteryGift? mgRng = default;
             if (mg.Count > 0)
             {
-                if (Rng.ShinyRNG >= 100 - settings.SquareShinyRate || Rng.ShinyRNG >= 100 - settings.StarShinyRate)
+                if (Rng.ShinyRNG >= 150 - settings.SquareShinyRate || Rng.ShinyRNG >= 150 - settings.StarShinyRate)
                 {
                     var mgSh = mg.FindAll(x => x.IsShiny);
                     mgRng = mgSh.Count > 0 ? mgSh.ElementAt(Random.Next(mgSh.Count)) : mg.ElementAt(Random.Next(mg.Count));
