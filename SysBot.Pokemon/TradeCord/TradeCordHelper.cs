@@ -1340,17 +1340,17 @@ namespace SysBot.Pokemon
                 {
                     user.Daycare.Species1 = pk.Species;
                     user.Daycare.Form1 = form;
-                    var namesDC = new string[] { "@form1", "@species1", "@user_id", "@id" };
+                    var namesDC = new string[] { "@form1", "@species1", "@user_id", "@id1" };
                     var objDC = new object[] { form, pk.Species, user.UserInfo.UserID, match.ID };
-                    result.SQLCommands.Add(DBCommandConstructor("daycare", "form1 = ?, species1 = ?", "where user_id = ? and id = ?", namesDC, objDC, SQLTableContext.Update));
+                    result.SQLCommands.Add(DBCommandConstructor("daycare", "form1 = ?, species1 = ?", "where user_id = ? and id1 = ?", namesDC, objDC, SQLTableContext.Update));
                 }
                 else if (user.Daycare.ID2 == match.ID)
                 {
                     user.Daycare.Form2 = form;
                     user.Daycare.Species2 = pk.Species;
-                    var namesDC = new string[] { "@form2", "@species2", "@user_id", "@id" };
+                    var namesDC = new string[] { "@form2", "@species2", "@user_id", "@id2" };
                     var objDC = new object[] { form, pk.Species, user.UserInfo.UserID, match.ID };
-                    result.SQLCommands.Add(DBCommandConstructor("daycare", "form2 = ?, species2 = ?", "where user_id = ? and id = ?", namesDC, objDC, SQLTableContext.Update));
+                    result.SQLCommands.Add(DBCommandConstructor("daycare", "form2 = ?, species2 = ?", "where user_id = ? and id2 = ?", namesDC, objDC, SQLTableContext.Update));
                 }
 
                 var names = new string[] { "@form", "@species", "@nickname", "@user_id", "@id" };

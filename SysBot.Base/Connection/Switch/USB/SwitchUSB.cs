@@ -224,5 +224,28 @@ namespace SysBot.Base
                 return buffer;
             }
         }
+
+        protected byte[] GetScreenshot()
+        {
+            Thread.Sleep(1);
+            lock (_sync)
+            {
+                byte[] sizeOfReturn = new byte[4];
+                if (reader == null)
+                    throw new Exception("USB device not found or not connected.");
+
+                reader.Read(sizeOfReturn, 5000, out _);
+                int size = BitConverter.ToInt32(sizeOfReturn, 0);
+                byte[] buffer = new byte[size];
+                int lenVal = 1;
+                int transfSize = 0;
+                while (lenVal > 0)
+                {
+                    reader.Read(buffer, transfSize, reader.ReadBufferSize, 5000, out lenVal);
+                    transfSize += lenVal;
+                }
+                return buffer;
+            }
+        }
     }
 }
