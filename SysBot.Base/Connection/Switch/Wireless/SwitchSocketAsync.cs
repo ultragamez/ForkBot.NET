@@ -184,5 +184,26 @@ namespace SysBot.Base
         {
             await SendAsync(command, token).ConfigureAwait(false);
         }
+
+        public async Task<byte[]> Screengrab(CancellationToken token)
+        {
+            await SendAsync(SwitchCommand.Screengrab(), token).ConfigureAwait(false);
+            byte[] buffer = new byte[1_000_000];
+            int ofs = 0;
+
+            await Task.Delay(Connection.ReceiveBufferSize / DelayFactor + BaseDelay, token).ConfigureAwait(false);
+            while (Connection.Available > 0)
+            {
+                int recv = Connection.Receive(buffer, ofs, Connection.ReceiveBufferSize, SocketFlags.None);
+                ofs += recv;
+                await Task.Delay(MaximumTransferSize / DelayFactor + BaseDelay, token).ConfigureAwait(false);
+            }
+
+            if (ofs % 2 != 0)
+                ofs -= 1;
+
+            buffer = buffer.SliceSafe(0, ofs);
+            return Decoder.ConvertHexByteStringToBytes(buffer);
+        }
     }
 }
