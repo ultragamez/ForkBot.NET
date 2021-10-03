@@ -8,7 +8,7 @@ using PKHeX.Core;
 
 namespace SysBot.Pokemon
 {
-    public abstract class TradeCordDatabase : TradeCordUserBase
+    public abstract class TradeCordDatabase<T> : TradeCordUserBase where T : PKM, new()
     {
         private static readonly string DatabasePath = "TradeCord/TradeCordDB_SWSH.db";
         private static SQLiteConnection Connection = new();
@@ -382,7 +382,7 @@ namespace SysBot.Pokemon
         {
             try
             {
-                TradeCordHelper.VacuumLock = true;
+                TradeCordHelper<T>.VacuumLock = true;
                 Thread.Sleep(0_500);
                 var path = "TradeCord/TradeCordDB_SWSH_backup.db";
                 var path2 = "TradeCord/TradeCordDB_SWSH_backup2.db";
@@ -457,7 +457,7 @@ namespace SysBot.Pokemon
                     cmd.CommandText = "insert into dex_flavor(species) values(@species)";
                     cmd.Parameters.AddWithValue("@species", i);
                     cmd.ExecuteNonQuery();
-                    TradeCordHelperUtil.FormOutput(i, 0, out string[] forms);
+                    TradeCordHelperUtil<T>.FormOutput(i, 0, out string[] forms);
 
                     for (int f = 0; f < forms.Length; f++)
                     {
@@ -636,7 +636,7 @@ namespace SysBot.Pokemon
                                             {
                                                 var array = Directory.GetFiles(dir).Where(x => x.Contains(".pk")).Select(x => int.Parse(x.Split('\\')[2].Split('-', '_')[0].Replace("★", "").Trim())).ToArray();
                                                 array = array.OrderBy(x => x).ToArray();
-                                                catches[c].ID = new TradeCordHelperUtil().Indexing(array);
+                                                catches[c].ID = new TradeCordHelperUtil<T>().Indexing(array);
                                             }
 
                                             PK8? pk = null;

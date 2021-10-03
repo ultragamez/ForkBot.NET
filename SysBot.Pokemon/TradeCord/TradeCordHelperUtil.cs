@@ -6,7 +6,7 @@ using PKHeX.Core.AutoMod;
 
 namespace SysBot.Pokemon
 {
-    public class TradeCordHelperUtil : TradeCordDatabase
+    public class TradeCordHelperUtil<T> : TradeCordDatabase<T> where T : PKM, new()
     {
         private static readonly List<EvolutionTemplate> Evolutions = EvolutionRequirements();
         private static readonly Random Random = new();
@@ -83,7 +83,7 @@ namespace SysBot.Pokemon
 
         private PK8 TradeCordPK(int species) => (PK8)AutoLegalityWrapper.GetTrainerInfo(8).GetLegal(AutoLegalityWrapper.GetTemplate(new ShowdownSet(SpeciesName.GetSpeciesNameGeneration(species, 2, 8))), out _);
 
-        public PK8 RngRoutine(PKM pkm, IBattleTemplate template, Shiny shiny)
+        public T RngRoutine(T pkm, IBattleTemplate template, Shiny shiny)
         {
             if (pkm.Species == (int)Species.Alcremie)
             {
@@ -116,7 +116,7 @@ namespace SysBot.Pokemon
             {
                 pkm.CurrentLevel += 1;
                 if (pkm.CurrentLevel == 100 && !new LegalityAnalysis(pkm).Valid)
-                    return (PK8)pkm;
+                    return pkm;
             }
 
             pkm.SetSuggestedMoves();
@@ -146,75 +146,63 @@ namespace SysBot.Pokemon
                 pkm.SetRandomIVsGO(slotGO.Type.GetMinIV());
             else if (enc is EncounterStatic8N static8N)
                 pkm.SetRandomIVs(static8N.FlawlessIVCount + 1);
-            else if (enc is IOverworldCorrelation8 oc)
+            else if (pkm is PK8 pk8)
             {
                 var criteria = EncounterCriteria.GetCriteria(template);
-                bool owCorr = true;
                 List<int> IVs = new() { 0, 0, 0, 0, 0, 0 };
-                int i = 0;
-
-                while (i < 1_000)
-                {// Loosely adapted from ALM.
-                    if (enc is EncounterStatic8 static8)
+                if (enc is EncounterStatic8 static8)
+                {
+                    if (enc is IOverworldCorrelation8 ow && static8.IsOverworldCorrelation)
                     {
-                        owCorr = static8.IsOverworldCorrelation;
-                        if (!owCorr)
+                        for (int i = 0; i < 1000; i++)
                         {
-                            pkm.SetRandomIVs(Random.Next(static8.FlawlessIVCount, 7));
-                            break;
-                        }
+                            int flawless = static8.FlawlessIVCount;
+                            while (IVs.FindAll(x => x == 31).Count < flawless)
+                                IVs[Random.Next(IVs.Count)] = 31;
 
-                        var flawless = static8.FlawlessIVCount;
-                        while (IVs.FindAll(x => x == 31).Count < flawless)
-                            IVs[Random.Next(IVs.Count)] = 31;
-
-                        pkm.IVs = new int[] { IVs[0], IVs[1], IVs[2], IVs[3], IVs[4], IVs[5] };
-                        var available = xoroshiro8_wild.GetWildSeedFromIV8(new[] { flawless }, pkm.IVs, out uint seed);
-                        if (owCorr)
-                            APILegality.FindWildPIDIV8((PK8)pkm, shiny, available, seed);
-                    }
-                    else if (enc is EncounterSlot8 slot8)
-                    {
-                        var flawless = Random.Next(4);
-                        while (IVs.FindAll(x => x == 31).Count < flawless)
-                            IVs[Random.Next(IVs.Count)] = 31;
-
-                        pkm.IVs = new int[] { IVs[0], IVs[1], IVs[2], IVs[3], IVs[4], IVs[5] };
-                        var available = xoroshiro8_wild.GetWildSeedFromIV8(new[] { 0, 2, 3 }, pkm.IVs, out uint seed);
-                        var req = oc.GetRequirement(pkm);
-                        if (req == OverworldCorrelation8Requirement.MustHave)
-                            APILegality.FindWildPIDIV8((PK8)pkm, shiny, available, seed);
-                        else if (req == OverworldCorrelation8Requirement.MustNotHave)
-                        {
-                            pkm.SetRandomIVs(Random.Next(4));
-                            break;
+                            pkm.IVs = new int[] { IVs[0], IVs[1], IVs[2], IVs[3], IVs[4], IVs[5] };
+                            var encFlawless = Overworld8Search.GetFlawlessIVCount(enc, pkm.IVs, out uint seed);
+                            APILegality.FindWildPIDIV8(pk8, shiny, flawless, seed);
+                            if (ow.IsOverworldCorrelationCorrect(pk8))
+                                break;
+                            else IVs = new() { 0, 0, 0, 0, 0, 0 };
                         }
                     }
-
-                    i++;
-                    if (owCorr && oc.IsOverworldCorrelationCorrect(pkm))
-                        break;
-                    else
+                    else pkm.SetRandomIVs(Random.Next(static8.FlawlessIVCount, 7));
+                }
+                else if (enc is EncounterSlot8 slot8)
+                {
+                    if (enc is IOverworldCorrelation8 ow && ow.GetRequirement(pkm) == OverworldCorrelation8Requirement.MustHave)
                     {
-                        IVs = new() { 0, 0, 0, 0, 0, 0 };
-                        continue;
+                        for (int i = 0; i < 1000; i++)
+                        {
+                            while (IVs.FindAll(x => x == 31).Count < 4)
+                                IVs[Random.Next(IVs.Count)] = 31;
+
+                            pkm.IVs = new int[] { IVs[0], IVs[1], IVs[2], IVs[3], IVs[4], IVs[5] };
+                            var encFlawless = Overworld8Search.GetFlawlessIVCount(enc, pkm.IVs, out uint seed);
+                            APILegality.FindWildPIDIV8(pk8, shiny, encFlawless, seed);
+                            if (ow.IsOverworldCorrelationCorrect(pk8))
+                                break;
+                            else IVs = new() { 0, 0, 0, 0, 0, 0 };
+                        }
                     }
+                    else pkm.SetRandomIVs(4);
                 }
             }
             else if (enc.Version != GameVersion.GO && enc.Generation >= 6)
                 pkm.SetRandomIVs(4);
 
-            var test = BallApplicator.GetLegalBalls(pkm);
             BallApplicator.ApplyBallLegalRandom(pkm);
             if (pkm.Ball == 16)
                 BallApplicator.ApplyBallLegalRandom(pkm);
 
             pkm = TradeExtensions.TrashBytes(pkm);
             pkm.CurrentFriendship = pkm.PersonalInfo.BaseFriendship;
-            return (PK8)pkm;
+            return pkm;
         }
 
-        public PK8 EggRngRoutine(EvoCriteria evo1, EvoCriteria evo2, int ball1, int ball2, string trainerInfo, bool star, bool square)
+        public T EggRngRoutine(EvoCriteria evo1, EvoCriteria evo2, int ball1, int ball2, string trainerInfo, bool star, bool square)
         {
             var shinyRng = square ? "\nShiny: Square" : star ? "\nShiny: Star" : "";
             var enumVals = (int[])Enum.GetValues(typeof(ValidEgg));
@@ -250,7 +238,7 @@ namespace SysBot.Pokemon
             var set = new ShowdownSet($"Egg({speciesRng}{formHelper}){ballRng}{shinyRng}\n{trainerInfo}");
             var template = AutoLegalityWrapper.GetTemplate(set);
             var sav = AutoLegalityWrapper.GetTrainerInfo(8);
-            var pk = (PK8)sav.GetLegal(template, out _);
+            var pk = (T)sav.GetLegal(template, out _);
 
             TradeExtensions.EggTrade(pk);
             pk.SetAbilityIndex(Random.Next(3));
@@ -309,7 +297,7 @@ namespace SysBot.Pokemon
                             TCItems item = TCItems.None;
                             bool baseSp = c - 1 < 0;
 
-                            if (evoType == EvolutionType.TradeHeldItem || evoType == EvolutionType.UseItem || evoType == EvolutionType.UseItemFemale || evoType == EvolutionType.UseItemMale || evoType == EvolutionType.LevelUpHeldItemDay || evoType == EvolutionType.LevelUpHeldItemNight || evoType == EvolutionType.SpinType)
+                            if (evoType == EvolutionType.TradeHeldItem || evoType == EvolutionType.UseItem || evoType == EvolutionType.UseItemFemale || evoType == EvolutionType.UseItemMale || evoType == EvolutionType.LevelUpHeldItemDay || evoType == EvolutionType.LevelUpHeldItemNight || evoType == EvolutionType.Spin)
                                 item = GetEvoItem(baseSp ? -1 : preEvos[c - 1].Species, f);
 
                             var template = new EvolutionTemplate
@@ -446,9 +434,9 @@ namespace SysBot.Pokemon
             };
         }
 
-        private PK8? ShedinjaGenerator(PK8 pk, out string msg)
+        private T? ShedinjaGenerator(T pk, out string msg)
         {
-            PK8? shedinja = (PK8)pk.Clone();
+            T? shedinja = (T)pk.Clone();
             var index = shedinja.PersonalInfo.GetAbilityIndex(shedinja.Ability);
             shedinja.Species = (int)Species.Shedinja;
             shedinja.SetGender(2);
@@ -474,7 +462,7 @@ namespace SysBot.Pokemon
             return shedinja;
         }
 
-        public bool EvolvePK(PK8 pk, TimeOfDay tod, out string msg, out PK8? shedinja, AlcremieForms alcremie = AlcremieForms.None, RegionalFormArgument arg = RegionalFormArgument.None)
+        public bool EvolvePK(T pk, TimeOfDay tod, out string msg, out T? shedinja, AlcremieForms alcremie = AlcremieForms.None, RegionalFormArgument arg = RegionalFormArgument.None)
         {
             msg = string.Empty;
             shedinja = null;
@@ -513,7 +501,7 @@ namespace SysBot.Pokemon
                 msg = $"Current level is too low, needs to be at least level {result.EvolvesAtLevel}.";
                 return false;
             }
-            else if (pk.CanGigantamax && (pk.Species == (int)Species.Meowth || pk.Species == (int)Species.Pikachu || pk.Species == (int)Species.Eevee))
+            else if (pk is PK8 pk8 && pk8.CanGigantamax && (pk.Species == (int)Species.Meowth || pk.Species == (int)Species.Pikachu || pk.Species == (int)Species.Eevee))
             {
                 msg = $"Gigantamax {SpeciesName.GetSpeciesNameGeneration(pk.Species, 2, 8)} cannot evolve.";
                 return false;
@@ -523,17 +511,17 @@ namespace SysBot.Pokemon
             {
                 case EvolutionType.Trade:
                 case EvolutionType.TradeHeldItem:
-                case EvolutionType.TradeSpecies:
+                case EvolutionType.TradeShelmetKarrablast:
                     {
                         var clone = pk.Clone();
                         clone.OT_Name = "Nishikigoi";
                         var trainer = new PokeTrainerDetails(clone);
-                        pk.Trade(trainer, 20, 10, 2020);
+                        pk.SetHandlerandMemory(trainer);
                     }; break;
-                case EvolutionType.SpinType:
+                case EvolutionType.Spin:
                     {
                         if ((int)heldItem >= 1109 && (int)heldItem <= 1115)
-                            pk.FormArgument = GetAlcremieDeco(heldItem);
+                            pk.ChangeFormArgument(GetAlcremieDeco(heldItem));
                     }; break;
                 case EvolutionType.LevelUpFriendship:
                 case EvolutionType.LevelUpFriendshipMorning:
@@ -600,8 +588,12 @@ namespace SysBot.Pokemon
                 pk.SetEggMetData(GameVersion.UM, (GameVersion)version);
                 var sav = new SimpleTrainerInfo() { OT = pk.OT_Name, Gender = pk.OT_Gender, Generation = version, Language = pk.Language, SID = pk.TrainerSID7, TID = pk.TrainerID7 };
                 pk.SetHandlerandMemory(sav);
-                pk.HeightScalar = 0;
-                pk.WeightScalar = 0;
+                if (pk is PK8 pk8)
+                {
+                    pk8.HeightScalar = 0;
+                    pk8.WeightScalar = 0;
+                }
+
                 if (pk.Ball == (int)Ball.Sport || (pk.WasEgg && pk.Ball == (int)Ball.Master))
                     pk.SetSuggestedBall(true);
             }
@@ -633,7 +625,7 @@ namespace SysBot.Pokemon
             return true;
         }
 
-        private void EdgeCaseRelearnMoves(PK8 pk, LegalityAnalysis la)
+        private void EdgeCaseRelearnMoves(T pk, LegalityAnalysis la)
         {
             if (pk.Met_Location == 162 || pk.Met_Location == 244)
                 return;
@@ -662,7 +654,7 @@ namespace SysBot.Pokemon
             pk.HealPP();
         }
 
-        private EvolutionTemplate EdgeCaseEvolutions(List<EvolutionTemplate> evoList, PK8 pk, int alcremieForm, int form, int item, TimeOfDay tod)
+        private EvolutionTemplate EdgeCaseEvolutions(List<EvolutionTemplate> evoList, T pk, int alcremieForm, int form, int item, TimeOfDay tod)
         {
             EvolutionTemplate result = pk.Species switch
             {
@@ -794,7 +786,7 @@ namespace SysBot.Pokemon
             return missing;
         }
 
-        public PK8 SetProcess(string speciesName, List<string> trainerInfo, int eventForm, TradeCordSettings settings)
+        public T SetProcess(string speciesName, List<string> trainerInfo, int eventForm, TradeCordSettings settings)
         {
             string formHack = string.Empty;
             var formEdgeCaseRng = Random.Next(11);
@@ -876,11 +868,11 @@ namespace SysBot.Pokemon
 
             var template = AutoLegalityWrapper.GetTemplate(set);
             var sav = AutoLegalityWrapper.GetTrainerInfo(8);
-            var pk = (PK8)sav.GetLegal(template, out string result);
+            var pk = sav.GetLegal(template, out string result);
 
             if (pk.FatefulEncounter || result != "Regenerated")
-                return pk;
-            else return RngRoutine(pk, template, shiny);
+                return (T)pk;
+            else return RngRoutine((T)pk, template, shiny);
         }
 
         public void EventHandler(TradeCordSettings settings, out MysteryGift? mg, out int form)

@@ -8,14 +8,13 @@ using Newtonsoft.Json;
 
 namespace SysBot.Pokemon
 {
-    public sealed class LairBotUtil
+    public abstract class LairBotUtil
     {
         public static CancellationTokenSource EmbedSource = new();
         public static bool DiscordQueueOverride;
         public static bool EmbedsInitialized;
         public static (PK8?, bool) EmbedMon;
-        public static int TerrainDur = -1;
-        public static MoveInfo.MoveInfoRoot MoveRoot = new();
+        public int TerrainDur = -1;
 
         // Copied over from PKHeX due to accessibility
         internal static readonly ushort[] Pouch_Regular_SWSH =
@@ -56,7 +55,7 @@ namespace SysBot.Pokemon
             1592, 1604, 1606
         };
 
-        public static double[] TypeDamageMultiplier(int[] types, int moveType)
+        public double[] TypeDamageMultiplier(int[] types, int moveType)
         {
             double[] effectiveness = { -1, -1 };
             for (int i = 0; i < types.Length; i++)
@@ -87,11 +86,11 @@ namespace SysBot.Pokemon
             return effectiveness;
         }
 
-        public class MoveInfo
+        public class PokeMoveInfo
         {
             public class MoveInfoRoot
             {
-                public HashSet<MoveInfo> Moves { get; private set; } = new();
+                public HashSet<PokeMoveInfo> Moves { get; private set; } = new();
             }
 
             public int MoveID { get; set; }
@@ -113,9 +112,9 @@ namespace SysBot.Pokemon
             public MoveTarget Target { get; set; }
         }
 
-        public static int CalculateEffectiveStat(int statIV, int statEV, int statBase, int level) => ((statIV + (2 * statBase) + (statEV / 4)) * level / 100) + 5; // Taken from PKHeX
+        public int CalculateEffectiveStat(int statIV, int statEV, int statBase, int level) => ((statIV + (2 * statBase) + (statEV / 4)) * level / 100) + 5; // Taken from PKHeX
 
-        public static int PriorityIndex(PK8 pk)
+        public int PriorityIndex(PK8 pk)
         {
             int selectIndex = -1;
             for (int i = 0; i < pk.Moves.Length; i++)
@@ -129,7 +128,7 @@ namespace SysBot.Pokemon
             return selectIndex;
         }
 
-        public static bool AbilityImmunity(int ourAbility, int encounterAbility, int[] encounterTypes, MoveType ourMoveType, int ourMoveID, PK8[]? party = default)
+        private bool AbilityImmunity(int ourAbility, int encounterAbility, int[] encounterTypes, MoveType ourMoveType, int ourMoveID, PK8[]? party = default)
         {
             if (ourAbility == (int)Ability.Turboblaze || ourAbility == (int)Ability.Teravolt || ourAbility == (int)Ability.MoldBreaker)
                 return false;
@@ -161,7 +160,7 @@ namespace SysBot.Pokemon
             };
         }
 
-        public static double[] WeightedDamage(PK8[] party, PK8 pk, PK8 lairPk, bool dmax)
+        public double[] WeightedDamage(PK8[] party, PK8 pk, PK8 lairPk, PokeMoveInfo.MoveInfoRoot root, bool dmax)
         {
             if (TerrainDur >= 0)
                 --TerrainDur;
@@ -175,7 +174,7 @@ namespace SysBot.Pokemon
             for (int i = 0; i < pk.Moves.Length; i++)
             {
                 double typeMultiplier = -1.0;
-                var move = MoveRoot.Moves.FirstOrDefault(x => x.MoveID == pk.Moves[i]);
+                var move = root.Moves.FirstOrDefault(x => x.MoveID == pk.Moves[i]);
                 var power = Convert.ToDouble(move.Power);
                 bool immune = AbilityImmunity(pk.Ability, lairPk.Ability, types, move.Type, move.MoveID, party);
 
@@ -297,12 +296,12 @@ namespace SysBot.Pokemon
             return dmgCalc;
         }
 
-        public static MoveInfo.MoveInfoRoot LoadMoves()
+        public PokeMoveInfo.MoveInfoRoot LoadMoves()
         {
-            using Stream stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("SysBot.Pokemon.BotLair.MoveInfo.json");
+            using Stream stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("SysBot.Pokemon.BotEncounter.BotLair.MoveInfo.json");
             using TextReader reader = new StreamReader(stream);
             JsonSerializer serializer = new();
-            var root = (MoveInfo.MoveInfoRoot?)serializer.Deserialize(reader, typeof(MoveInfo.MoveInfoRoot));
+            var root = (PokeMoveInfo.MoveInfoRoot?)serializer.Deserialize(reader, typeof(PokeMoveInfo.MoveInfoRoot));
             reader.Close();
             return root ?? new();
         }

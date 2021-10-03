@@ -9,11 +9,11 @@ using System.Threading.Tasks;
 namespace SysBot.Pokemon.Discord
 {
     [Summary("Generates and queues various silly trade additions")]
-    public class TradeAdditionsModule : ModuleBase<SocketCommandContext>
+    public class TradeAdditionsModule<T> : ModuleBase<SocketCommandContext> where T : PKM, new()
     {
-        private static TradeQueueInfo<PK8> Info => SysCordInstance.Self.Hub.Queues.Info;
-        private readonly PokeTradeHub<PK8> Hub = SysCordInstance.Self.Hub;
-        private readonly ExtraCommandUtil Util = new();
+        private static TradeQueueInfo<T> Info => SysCord<T>.Runner.Hub.Queues.Info;
+        private readonly PokeTradeHub<T> Hub = SysCord<T>.Runner.Hub;
+        private readonly ExtraCommandUtil<T> Util = new();
 
         [Command("giveawayqueue")]
         [Alias("gaq")]
@@ -65,32 +65,26 @@ namespace SysBot.Pokemon.Discord
         [RequireQueueRole(nameof(DiscordManager.RolesGiveaway))]
         public async Task GiveawayAsync([Summary("Giveaway Code")] int code, [Remainder] string content)
         {
-            var pk = new PK8();
+            T pk;
             content = ReusableActions.StripCodeBlock(content);
-            pk.Nickname = content;
             var pool = Info.Hub.Ledy.Pool;
-
             if (pool.Count == 0)
             {
                 await ReplyAsync("Giveaway pool is empty.").ConfigureAwait(false);
                 return;
             }
-            else if (pk.Nickname.ToLower() == "random") // Request a random giveaway prize.
+            else if (content.ToLower() == "random") // Request a random giveaway prize.
                 pk = Info.Hub.Ledy.Pool.GetRandomSurprise();
+            else if (Info.Hub.Ledy.Distribution.TryGetValue(content, out LedyRequest<T> val))
+                pk = val.RequestInfo;
             else
             {
-                var trade = Info.Hub.Ledy.GetLedyTrade(pk);
-                if (trade != null)
-                    pk = trade.Receive;
-                else
-                {
-                    await ReplyAsync($"Requested Pokémon not available, use \"{Info.Hub.Config.Discord.CommandPrefix}giveawaypool\" for a full list of available giveaways!").ConfigureAwait(false);
-                    return;
-                }
+                await ReplyAsync($"Requested Pokémon not available, use \"{Info.Hub.Config.Discord.CommandPrefix}giveawaypool\" for a full list of available giveaways!").ConfigureAwait(false);
+                return;
             }
 
             var sig = Context.User.GetFavor();
-            await Context.AddToQueueAsync(code, Context.User.Username, sig, pk, PokeRoutineType.LinkTrade, PokeTradeType.Giveaway, Context.User).ConfigureAwait(false);
+            await QueueHelper<T>.AddToQueueAsync(Context, code, Context.User.Username, sig, pk, PokeRoutineType.LinkTrade, PokeTradeType.Specific).ConfigureAwait(false);
         }
 
         [Command("fixOT")]
@@ -101,7 +95,7 @@ namespace SysBot.Pokemon.Discord
         {
             var code = Info.GetRandomTradeCode();
             var sig = Context.User.GetFavor();
-            await Context.AddToQueueAsync(code, Context.User.Username, sig, new PK8(), PokeRoutineType.FixOT, PokeTradeType.FixOT).ConfigureAwait(false);
+            await QueueHelper<T>.AddToQueueAsync(Context, code, Context.User.Username, sig, new T(), PokeRoutineType.FixOT, PokeTradeType.FixOT).ConfigureAwait(false);
         }
 
         [Command("fixOT")]
@@ -111,7 +105,7 @@ namespace SysBot.Pokemon.Discord
         public async Task FixAdOT([Summary("Trade Code")] int code)
         {
             var sig = Context.User.GetFavor();
-            await Context.AddToQueueAsync(code, Context.User.Username, sig, new PK8(), PokeRoutineType.FixOT, PokeTradeType.FixOT).ConfigureAwait(false);
+            await QueueHelper<T>.AddToQueueAsync(Context, code, Context.User.Username, sig, new T(), PokeRoutineType.FixOT, PokeTradeType.FixOT).ConfigureAwait(false);
         }
 
         [Command("fixOTList")]
@@ -172,7 +166,7 @@ namespace SysBot.Pokemon.Discord
 
             pkm.ResetPartyStats();
             var sig = Context.User.GetFavor();
-            await Context.AddToQueueAsync(code, Context.User.Username, sig, (PK8)pkm, PokeRoutineType.LinkTrade, PokeTradeType.SupportTrade).ConfigureAwait(false);
+            await QueueHelper<T>.AddToQueueAsync(Context, code, Context.User.Username, sig, (T)pkm, PokeRoutineType.LinkTrade, PokeTradeType.SupportTrade).ConfigureAwait(false);
         }
 
         [Command("dittoTrade")]
@@ -198,8 +192,8 @@ namespace SysBot.Pokemon.Discord
             var template = AutoLegalityWrapper.GetTemplate(set);
             var sav = AutoLegalityWrapper.GetTrainerInfo(8);
             var pkm = sav.GetLegal(template, out var result);
-            pkm = PKMConverter.ConvertToType(pkm, typeof(PK8), out _) ?? pkm;
-            TradeExtensions.DittoTrade(pkm);
+            pkm = PKMConverter.ConvertToType(pkm, typeof(T), out _) ?? pkm;
+            TradeExtensions.DittoTrade((T)pkm);
 
             var la = new LegalityAnalysis(pkm);
             if (Info.Hub.Config.Trade.Memes && await TrollAsync(Context, pkm is not PK8 || !la.Valid, template).ConfigureAwait(false))
@@ -214,59 +208,7 @@ namespace SysBot.Pokemon.Discord
 
             pkm.ResetPartyStats();
             var sig = Context.User.GetFavor();
-            await Context.AddToQueueAsync(code, Context.User.Username, sig, (PK8)pkm, PokeRoutineType.LinkTrade, PokeTradeType.SupportTrade).ConfigureAwait(false);
-        }
-
-        [Command("screenOff")]
-        [Alias("off")]
-        [Summary("Turn off the console screen for specified bot(s).")]
-        [RequireOwner]
-        public async Task ScreenOff([Remainder] string addressesCommaSeparated)
-        {
-            var address = addressesCommaSeparated.Replace(" ", "").Split(',');
-            var source = new System.Threading.CancellationTokenSource();
-            var token = source.Token;
-
-            foreach (var adr in address)
-            {
-                var bot = SysCordInstance.Runner.GetBot(adr);
-                if (bot == null)
-                {
-                    await ReplyAsync($"No bot found with the specified address ({adr}).").ConfigureAwait(false);
-                    return;
-                }
-
-                var c = bot.Bot.Connection;
-                bool crlf = bot.Bot.Config.Connection.UseCRLF;
-                await c.SendAsync(Base.SwitchCommand.ScreenOff(crlf), token).ConfigureAwait(false);
-                await ReplyAsync($"Turned screen off for {bot.Bot.Connection.Label}.").ConfigureAwait(false);
-            }
-        }
-
-        [Command("screenOn")]
-        [Alias("on")]
-        [Summary("Turn on the console screen for specified bot(s).")]
-        [RequireOwner]
-        public async Task ScreenOn([Remainder] string addressesCommaSeparated)
-        {
-            var address = addressesCommaSeparated.Replace(" ", "").Split(',');
-            var source = new System.Threading.CancellationTokenSource();
-            var token = source.Token;
-
-            foreach (var adr in address)
-            {
-                var bot = SysCordInstance.Runner.GetBot(adr);
-                if (bot == null)
-                {
-                    await ReplyAsync($"No bot found with the specified address ({adr}).").ConfigureAwait(false);
-                    return;
-                }
-
-                var c = bot.Bot.Connection;
-                bool crlf = bot.Bot.Config.Connection.UseCRLF;
-                await c.SendAsync(Base.SwitchCommand.ScreenOn(crlf), token).ConfigureAwait(false);
-                await ReplyAsync($"Turned screen on for {bot.Bot.Connection.Label}.").ConfigureAwait(false);
-            }
+            await QueueHelper<T>.AddToQueueAsync(Context, code, Context.User.Username, sig, (T)pkm, PokeRoutineType.LinkTrade, PokeTradeType.SupportTrade).ConfigureAwait(false);
         }
 
         [Command("peek")]
@@ -277,7 +219,7 @@ namespace SysBot.Pokemon.Discord
             var source = new System.Threading.CancellationTokenSource();
             var token = source.Token;
 
-            var bot = SysCordInstance.Runner.GetBot(address);
+            var bot = SysCord<T>.Runner.GetBot(address);
             if (bot == null)
             {
                 await ReplyAsync($"No bot found with the specified address ({address}).").ConfigureAwait(false);

@@ -9,8 +9,10 @@ using System.Collections.Generic;
 namespace SysBot.Pokemon.Discord
 {
     [Summary("Commands for Lair Bot.")]
-    public class LairModule : ModuleBase<SocketCommandContext>
+    public class LairModule<T> : ModuleBase<SocketCommandContext> where T : PKM, new()
     {
+        private readonly LairBotSettings Settings = SysCord<T>.Runner.Hub.Config.Lair;
+
         [Command("hunt")]
         [Alias("h")]
         [Summary("Sets all three Scientist Notes. Enter all three species without spaces or symbols in their names; species separated by spaces.")]
@@ -27,11 +29,11 @@ namespace SysBot.Pokemon.Discord
                     return;
                 }
 
-                SysCordInstance.Self.Hub.Config.Lair.LairSpeciesQueue[i] = parse;
+                Settings.LairSpeciesQueue[i] = parse;
                 if (i == 2)
                 {
                     LairBotUtil.DiscordQueueOverride = true;
-                    var msg = $"{Context.User.Mention} Lair Species have been set to {string.Join(", ", SysCordInstance.Self.Hub.Config.Lair.LairSpeciesQueue)}.";
+                    var msg = $"{Context.User.Mention} Lair Species have been set to {string.Join(", ", Settings.LairSpeciesQueue)}.";
                     await ReplyAsync(msg).ConfigureAwait(false);
                 }
             }
@@ -43,8 +45,8 @@ namespace SysBot.Pokemon.Discord
         [RequireSudo]
         public async Task ToggleCatchLairMons()
         {
-            SysCordInstance.Self.Hub.Config.Lair.CatchLairPokémon ^= true;
-            var msg = SysCordInstance.Self.Hub.Config.Lair.CatchLairPokémon ? "Catching Lair Pokémon!" : "Not Catching Lair Pokémon!";
+            Settings.CatchLairPokémon ^= true;
+            var msg = Settings.CatchLairPokémon ? "Catching Lair Pokémon!" : "Not Catching Lair Pokémon!";
             await ReplyAsync(msg).ConfigureAwait(false);
         }
 
@@ -54,8 +56,8 @@ namespace SysBot.Pokemon.Discord
         [RequireSudo]
         public async Task ToggleResetLegendaryCaughtFlag()
         {
-            SysCordInstance.Self.Hub.Config.Lair.ResetLegendaryCaughtFlag ^= true;
-            var msg = SysCordInstance.Self.Hub.Config.Lair.ResetLegendaryCaughtFlag ? "Legendary Caught Flag Enabled!" : "Legendary Caught Flag Disabled!";
+            Settings.ResetLegendaryCaughtFlag ^= true;
+            var msg = Settings.ResetLegendaryCaughtFlag ? "Legendary Caught Flag Enabled!" : "Legendary Caught Flag Disabled!";
             await ReplyAsync(msg).ConfigureAwait(false);
         }
 
@@ -72,7 +74,7 @@ namespace SysBot.Pokemon.Discord
                 return;
             }
 
-            SysCordInstance.Self.Hub.Config.Lair.LairBall = parse;
+            Settings.LairBall = parse;
             var msg = $"Now catching in {parse} Ball!";
             await ReplyAsync(msg).ConfigureAwait(false);
         }
@@ -83,14 +85,14 @@ namespace SysBot.Pokemon.Discord
         [RequireSudo]
         public async Task InitializeEmbeds()
         {
-            if (SysCordInstance.Self.Hub.Config.Lair.ResultsEmbedChannels == string.Empty)
+            if (Settings.ResultsEmbedChannels == string.Empty)
             {
                 await ReplyAsync("No channels to post embeds in.").ConfigureAwait(false);
                 return;
             }
 
             List<ulong> channels = new();
-            foreach (var channel in SysCordInstance.Self.Hub.Config.Lair.ResultsEmbedChannels.Split(',', ' '))
+            foreach (var channel in Settings.ResultsEmbedChannels.Split(',', ' '))
             {
                 if (ulong.TryParse(channel, out ulong result) && !channels.Contains(result))
                     channels.Add(result);
@@ -111,6 +113,7 @@ namespace SysBot.Pokemon.Discord
 
         private async Task LairEmbedLoop(List<ulong> channels)
         {
+            var ping = SysCord<T>.Runner.Hub.Config.StopConditions.MatchFoundEchoMention.Replace("<@!", "").Replace(">", "");
             while (!LairBotUtil.EmbedSource.IsCancellationRequested)
             {
                 if (LairBotUtil.EmbedMon.Item1 != null)
@@ -118,11 +121,10 @@ namespace SysBot.Pokemon.Discord
                     var url = TradeExtensions.PokeImg(LairBotUtil.EmbedMon.Item1, LairBotUtil.EmbedMon.Item1.CanGigantamax, false);
                     var ballStr = $"{(Ball)LairBotUtil.EmbedMon.Item1.Ball}".ToLower();
                     var ballUrl = $"https://serebii.net/itemdex/sprites/pgl/{ballStr}ball.png";
-                    var ping = SysCordInstance.Self.Hub.Config.StopConditions.PingOnMatch != string.Empty ? $"<@{SysCordInstance.Self.Hub.Config.StopConditions.PingOnMatch}>" : "";
                     var author = new EmbedAuthorBuilder { IconUrl = ballUrl, Name = LairBotUtil.EmbedMon.Item2 ? "Legendary Caught!" : "Result found, but not quite Legendary!" };
                     var embed = new EmbedBuilder { Color = Color.Blue, ThumbnailUrl = url }.WithAuthor(author).WithDescription(ShowdownParsing.GetShowdownText(LairBotUtil.EmbedMon.Item1));
 
-                    if (ulong.TryParse(SysCordInstance.Self.Hub.Config.StopConditions.PingOnMatch, out ulong usr))
+                    if (ulong.TryParse(ping, out ulong usr))
                     {
                         var user = await Context.Client.Rest.GetUserAsync(usr).ConfigureAwait(false);
                         embed.WithFooter(x => { x.Text = $"Requested by: {user}"; });

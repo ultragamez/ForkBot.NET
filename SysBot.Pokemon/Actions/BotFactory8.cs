@@ -13,6 +13,8 @@ namespace SysBot.Pokemon
                 or PokeRoutineType.Clone
                 or PokeRoutineType.Dump
                 or PokeRoutineType.SeedCheck
+                or PokeRoutineType.FixOT
+                or PokeRoutineType.TradeCord
                 => new PokeTradeBot(Hub, cfg),
 
             PokeRoutineType.EggFetch => new EggBot(cfg, Hub),
@@ -21,6 +23,10 @@ namespace SysBot.Pokemon
             PokeRoutineType.EncounterLine => new EncounterBotLine(cfg, Hub),
             PokeRoutineType.Reset => new EncounterBotReset(cfg, Hub),
             PokeRoutineType.Dogbot => new EncounterBotDog(cfg, Hub),
+            PokeRoutineType.LairBot => new LairBot(cfg, Hub),
+            PokeRoutineType.DenBot => new DenBot(cfg, Hub),
+            PokeRoutineType.BoolBot => new BoolBot(cfg, Hub),
+            PokeRoutineType.SoJCamp => new SoJCamp(cfg, Hub),
 
             PokeRoutineType.RemoteControl => new RemoteControlBot(cfg),
             _ => throw new ArgumentException(nameof(cfg.NextRoutineType)),

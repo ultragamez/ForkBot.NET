@@ -10,8 +10,8 @@ namespace SysBot.Pokemon
     // Thanks to Zaksabeast for the FlatBuffers tutorial and den hashes, Lusamine for the wonderful IV spreads by flawless IVs, and Kurt for pkNX's easily serializable text dumps.
     public class DenUtil
     {
-        private static readonly string SwordTable = "SysBot.Pokemon.BotDen.FlatbuffersResource.swordEnc.bin";
-        private static readonly string ShieldTable = "SysBot.Pokemon.BotDen.FlatbuffersResource.shieldEnc.bin";
+        private static readonly string SwordTable = "SysBot.Pokemon.SWSH.BotDen.FlatbuffersResource.swordEnc.bin";
+        private static readonly string ShieldTable = "SysBot.Pokemon.SWSH.BotDen.FlatbuffersResource.shieldEnc.bin";
 
         public class RaidData
         {
@@ -145,7 +145,7 @@ namespace SysBot.Pokemon
                 var speciesID = (int)(raidInfo.Den.IsEvent ? raidInfo.RaidDistributionEncounterTable.Entries(i).Value.Species : raidInfo.RaidEncounterTable.Entries(i).Value.Species);
                 var form = (int)(raidInfo.Den.IsEvent ? raidInfo.RaidDistributionEncounterTable.Entries(i).Value.AltForm : raidInfo.RaidEncounterTable.Entries(i).Value.AltForm);
                 var speciesName = SpeciesName.GetSpeciesNameGeneration(speciesID, 2, 8);
-                var pkm = AutoLegalityWrapper.GetTrainerInfo(8).GetLegal(AutoLegalityWrapper.GetTemplate(new ShowdownSet($"{speciesName}{TradeCordHelperUtil.FormOutput(speciesID, form, out _)}")), out _);
+                var pkm = AutoLegalityWrapper.GetTrainerInfo(8).GetLegal(AutoLegalityWrapper.GetTemplate(new ShowdownSet($"{speciesName}{TradeCordHelperUtil<PK8>.FormOutput(speciesID, form, out _)}")), out _);
                 var personal = pkm.PersonalInfo;
                 var IVs = raidInfo.Den.IsEvent ? (uint)raidInfo.RaidDistributionEncounterTable.Entries(i).Value.FlawlessIVs : (uint)raidInfo.RaidEncounterTable.Entries(i).Value.FlawlessIVs;
 
@@ -161,7 +161,7 @@ namespace SysBot.Pokemon
                 rng = SeedSearchUtil.GetAbility(rng, ability, out uint abilityT);
 
                 var ratio = personal.OnlyFemale ? 254 : personal.OnlyMale ? 0 : personal.Genderless ? 255 : personal.Gender;
-                var gender = raidInfo.Den.IsEvent ? (uint)raidInfo.RaidDistributionEncounterTable.Entries(i).Value.Gender : (uint)raidInfo.RaidEncounterTable.Entries(i).Value.Gender;              
+                var gender = raidInfo.Den.IsEvent ? (uint)raidInfo.RaidDistributionEncounterTable.Entries(i).Value.Gender : (uint)raidInfo.RaidEncounterTable.Entries(i).Value.Gender;
                 rng = SeedSearchUtil.GetGender(rng, (GenderRatio)ratio, gender, out uint genderT);
 
                 SeedSearchUtil.GetNature(rng, (uint)speciesID, (uint)form, out uint natureT);

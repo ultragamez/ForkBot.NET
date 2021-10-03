@@ -43,9 +43,6 @@ namespace SysBot.Pokemon
         [Category(DenSkip), Description("Additional delay between skips in milliseconds. Base delay is 360 ms.")]
         public int SkipDelay { get; set; } = 0;
 
-        [Category(DenSkip), Description("Host after skipping?")]
-        public bool HostAfterSkip { get; set; } = false;
-
         [Category(DenSkip), Description("Seed to inject. Please disclose seed-injected raids.")]
         public string SeedToInject { get; set; } = string.Empty;
 

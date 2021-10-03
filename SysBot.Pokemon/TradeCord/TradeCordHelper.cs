@@ -9,10 +9,10 @@ using System.Data.SQLite;
 
 namespace SysBot.Pokemon
 {
-    public class TradeCordHelper : TradeCordDatabase
+    public class TradeCordHelper<T> : TradeCordDatabase<T> where T : PKM, new()
     {
         private readonly TradeCordSettings Settings;
-        private readonly TradeCordHelperUtil Util = new();
+        private readonly TradeCordHelperUtil<T> Util = new();
 
         public static bool TCInitialized;
         public static bool VacuumLock;
@@ -34,12 +34,12 @@ namespace SysBot.Pokemon
             public bool FailedCatch { get; set; }
 
             public int PokeID { get; set; }
-            public PK8 Poke { get; set; } = new();
+            public T Poke { get; set; } = new();
 
             public int EggPokeID { get; set; }
-            public PK8 EggPoke { get; set; } = new();
+            public T EggPoke { get; set; } = new();
 
-            public PK8? Shedinja { get; set; }
+            public T? Shedinja { get; set; }
 
             public TCUser User { get; set; } = new();
             public TCUser Giftee { get; set; } = new();
@@ -207,7 +207,7 @@ namespace SysBot.Pokemon
             }
         }
 
-        private Results CatchHandler(TCUser user)
+        private Results CatchHandler(TCUser user, int format = 8)
         {
             Results result = new();
             string eggMsg = string.Empty;
@@ -270,7 +270,7 @@ namespace SysBot.Pokemon
                         Enum.TryParse(user.TrainerInfo.OTGender, out Gender gender);
                         Enum.TryParse(user.TrainerInfo.Language, out LanguageID language);
                         var info = new SimpleTrainerInfo { Gender = (int)gender, Language = (int)language, OT = user.TrainerInfo.OTName, TID = user.TrainerInfo.TID, SID = user.TrainerInfo.SID };
-                        result.Poke = TradeExtensions.CherishHandler(mgRng, info);
+                        result.Poke = TradeExtensions.CherishHandler<T>(mgRng, info, format);
                     }
 
                     if (result.Poke.Species == 0)
@@ -348,7 +348,7 @@ namespace SysBot.Pokemon
 
                 if (result.Item != string.Empty)
                 {
-                    bool article = TradeCordHelperUtil.ArticleChoice(result.Item[0]);
+                    bool article = TradeCordHelperUtil<T>.ArticleChoice(result.Item[0]);
                     result.Message += result.FailedCatch ? $"&^&\nAs it fled it dropped {(article ? "an" : "a")} {result.Item}! Added to the items pouch." : $"&^&\nOh? It was holding {(article ? "an" : "a")} {result.Item}! Added to the items pouch.";
                 }
             }
@@ -383,7 +383,7 @@ namespace SysBot.Pokemon
                     return false;
                 }
 
-                var pk = GetLookupAsClassObject<PK8>(user.UserInfo.UserID, "binary_catches", $"and id = {match.ID}");
+                var pk = GetLookupAsClassObject<T>(user.UserInfo.UserID, "binary_catches", $"and id = {match.ID}");
                 if (pk.Species == 0)
                 {
                     result.Message = "Oops, something happened when converting your Pokémon!";
@@ -510,7 +510,7 @@ namespace SysBot.Pokemon
                     return false;
                 }
 
-                var pk = GetLookupAsClassObject<PK8>(user.UserInfo.UserID, "binary_catches", $"and id = {match.ID}");
+                var pk = GetLookupAsClassObject<T>(user.UserInfo.UserID, "binary_catches", $"and id = {match.ID}");
                 if (pk.Species == 0)
                 {
                     result.Message = "Oops, something happened when converting your Pokémon!";
@@ -1155,7 +1155,7 @@ namespace SysBot.Pokemon
                     return false;
                 }
 
-                var pk = GetLookupAsClassObject<PK8>(user.UserInfo.UserID, "binary_catches", $"and id = {match.ID}");
+                var pk = GetLookupAsClassObject<T>(user.UserInfo.UserID, "binary_catches", $"and id = {match.ID}");
                 if (pk.Species == 0)
                 {
                     result.Message = "Oops, something happened when converting your Pokémon!";
@@ -1304,7 +1304,7 @@ namespace SysBot.Pokemon
                     return false;
                 }
 
-                var pk = GetLookupAsClassObject<PK8>(user.UserInfo.UserID, "binary_catches", $"and id = {match.ID}");
+                var pk = GetLookupAsClassObject<T>(user.UserInfo.UserID, "binary_catches", $"and id = {match.ID}");
                 if (pk.Species == 0)
                 {
                     result.Message = "Oops, something happened when converting your Pokémon!";
@@ -1316,13 +1316,13 @@ namespace SysBot.Pokemon
                     return false;
                 }
 
-                var oldName = pk.IsNicknamed ? pk.Nickname : $"{SpeciesName.GetSpeciesNameGeneration(pk.Species, 2, 8)}{TradeCordHelperUtil.FormOutput(pk.Species, pk.Form, out _)}";
-                var timeStr = TradeCordHelperUtil.TimeOfDayString(user.UserInfo.TimeZoneOffset, false);
+                var oldName = pk.IsNicknamed ? pk.Nickname : $"{SpeciesName.GetSpeciesNameGeneration(pk.Species, 2, 8)}{TradeCordHelperUtil<T>.FormOutput(pk.Species, pk.Form, out _)}";
+                var timeStr = TradeCordHelperUtil<T>.TimeOfDayString(user.UserInfo.TimeZoneOffset, false);
                 var tod = TradeExtensions.EnumParse<TimeOfDay>(timeStr);
                 if (tod == TimeOfDay.Dawn)
                     tod = TimeOfDay.Morning;
 
-                if (!Util.EvolvePK(pk, tod, out string message, out PK8? shedinja, alcremie, regional))
+                if (!Util.EvolvePK(pk, tod, out string message, out T? shedinja, alcremie, regional))
                 {
                     result.Message = message;
                     if (message.Contains("Failed to evolve"))
@@ -1330,7 +1330,7 @@ namespace SysBot.Pokemon
                     return false;
                 }
 
-                var form = TradeCordHelperUtil.FormOutput(pk.Species, pk.Form, out _);
+                var form = TradeCordHelperUtil<T>.FormOutput(pk.Species, pk.Form, out _);
                 var species = SpeciesName.GetSpeciesNameGeneration(pk.Species, 2, 8);
 
                 user.Catches[match.ID].Species = species;
@@ -1486,7 +1486,7 @@ namespace SysBot.Pokemon
                 result.SQLCommands.Add(DBCommandConstructor("binary_catches", "data = ?", "where user_id = ? and id = ?", namesU, objU, SQLTableContext.Update));
 
                 var itemStr = Util.GetItemString((int)item);
-                result.Message = $"You gave {(TradeCordHelperUtil.ArticleChoice(itemStr[0]) ? "an" : "a")} {itemStr} to your buddy!";
+                result.Message = $"You gave {(TradeCordHelperUtil<T>.ArticleChoice(itemStr[0]) ? "an" : "a")} {itemStr} to your buddy!";
                 return true;
             }
 
@@ -1609,7 +1609,7 @@ namespace SysBot.Pokemon
                 }
 
                 var itemStr = Util.GetItemString(pk.HeldItem);
-                result.Message = $"You took {(TradeCordHelperUtil.ArticleChoice(itemStr[0]) ? "an" : "a")} {itemStr} from your buddy!";
+                result.Message = $"You took {(TradeCordHelperUtil<T>.ArticleChoice(itemStr[0]) ? "an" : "a")} {itemStr} from your buddy!";
 
                 pk.HeldItem = 0;
                 bool updateBuddy = false;
@@ -1807,7 +1807,7 @@ namespace SysBot.Pokemon
             Util.Rng.EggShinyRNG += count;
         }
 
-        private PK8 EggProcess(TCDaycare dc, EvoCriteria evo1, EvoCriteria evo2, int ball1, int ball2, string trainerInfo, out string msg)
+        private T EggProcess(TCDaycare dc, EvoCriteria evo1, EvoCriteria evo2, int ball1, int ball2, string trainerInfo, out string msg)
         {
             msg = string.Empty;
             if (evo1.Species == 0 || evo2.Species == 0)
@@ -1821,7 +1821,7 @@ namespace SysBot.Pokemon
 
             var pk = Util.EggRngRoutine(evo1, evo2, ball1, ball2, trainerInfo, star, square);
             var eggSpeciesName = SpeciesName.GetSpeciesNameGeneration(pk.Species, 2, 8);
-            var eggForm = TradeCordHelperUtil.FormOutput(pk.Species, pk.Form, out _);
+            var eggForm = TradeCordHelperUtil<T>.FormOutput(pk.Species, pk.Form, out _);
             var finalEggName = eggSpeciesName + eggForm;
 
             pk.ResetPartyStats();
@@ -1953,10 +1953,10 @@ namespace SysBot.Pokemon
             return msg;
         }
 
-        private void CatchRegister(Results result, PK8 pk, out int index)
+        private void CatchRegister(Results result, T pk, out int index)
         {
             var speciesName = SpeciesName.GetSpeciesNameGeneration(pk.Species, 2, 8);
-            var form = TradeCordHelperUtil.FormOutput(pk.Species, pk.Form, out _);
+            var form = TradeCordHelperUtil<T>.FormOutput(pk.Species, pk.Form, out _);
             bool isLegend = Util.IsLegendaryOrMythical(speciesName);
             if (speciesName.Contains("Nidoran"))
             {

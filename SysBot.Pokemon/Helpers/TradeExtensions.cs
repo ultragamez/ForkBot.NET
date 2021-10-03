@@ -27,7 +27,7 @@ namespace SysBot.Pokemon
 
         public static T EnumParse<T>(string input) where T : struct, Enum => !Enum.TryParse(input, true, out T result) ? new() : result;
 
-        public static void DittoTrade(PKM pkm)
+        public static void DittoTrade<T>(T pkm) where T : PKM, new()
         {
             var dittoStats = new string[] { "atk", "spe", "spa" };
             var nickname = pkm.Nickname.ToLower();
@@ -39,58 +39,15 @@ namespace SysBot.Pokemon
             _ = TrashBytes(pkm, new LegalityAnalysis(pkm));
         }
 
-        public static void EggTrade(PK8 pk)
+        public static void EggTrade<T>(T pk) where T : PKM, new()
         {
-            pk = (PK8)TrashBytes(pk);
-            pk.IsNicknamed = true;
-            pk.Nickname = pk.Language switch
-            {
-                1 => "タマゴ",
-                3 => "Œuf",
-                4 => "Uovo",
-                5 => "Ei",
-                7 => "Huevo",
-                8 => "알",
-                9 or 10 => "蛋",
-                _ => "Egg",
-            };
-
-            pk.IsEgg = true;
-            pk.Egg_Location = 60002;
+            pk = (T)EncounterEggGenerator.GenerateEggs(pk, pk.Generation).First().ConvertToPKM(AutoLegalityWrapper.GetTrainerInfo(pk.Generation));
+            pk.HT_Name = "Nishikigoi";
             pk.MetDate = DateTime.Parse("2020/10/20");
             pk.EggMetDate = pk.MetDate;
-            pk.HeldItem = 0;
-            pk.CurrentLevel = 1;
-            pk.EXP = 0;
-            pk.DynamaxLevel = 0;
-            pk.Met_Level = 1;
-            pk.Met_Location = 30002;
-            pk.CurrentHandler = 0;
-            pk.OT_Friendship = 1;
-            pk.HT_Name = "";
-            pk.HT_Friendship = 0;
-            pk.HT_Language = 0;
-            pk.HT_Gender = 0;
-            pk.HT_Memory = 0;
-            pk.HT_Feeling = 0;
-            pk.HT_Intensity = 0;
-            pk.StatNature = pk.Nature;
-            pk.EVs = new int[] { 0, 0, 0, 0, 0, 0 };
-            pk.Markings = new int[] { 0, 0, 0, 0, 0, 0, 0, 0 };
-            pk.ClearRecordFlags();
-            pk.ClearRelearnMoves();
-            var la = new LegalityAnalysis(pk);
-            var enc = la.EncounterMatch;
-            pk.CurrentFriendship = enc is EncounterStatic s ? s.EggCycles : pk.PersonalInfo.HatchCycles;
-            pk.RelearnMoves = MoveBreed.GetExpectedMoves(pk.Moves, la.EncounterMatch);
-            pk.Moves = pk.RelearnMoves;
-            pk.Move1_PPUps = pk.Move2_PPUps = pk.Move3_PPUps = pk.Move4_PPUps = 0;
-            pk.SetMaximumPPCurrent(pk.Moves);
-            pk.SetSuggestedHyperTrainingData();
-            pk.SetSuggestedRibbons(la.EncounterMatch);
         }
 
-        public static void EncounterLogs(PK8 pk, string filepath = "")
+        public static void EncounterLogs<T>(T pk, string filepath = "") where T : PKM, new()
         {
             if (filepath == "")
                 filepath = "EncounterLogPretty.txt";
@@ -103,6 +60,7 @@ namespace SysBot.Pokemon
 
             lock (_syncLog)
             {
+                bool mark = pk is PK8 pk8 && pk8.HasMark();
                 var content = File.ReadAllText(filepath).Split('\n').ToList();
                 var splitTotal = content[0].Split(',');
                 content.RemoveRange(0, 3);
@@ -111,14 +69,14 @@ namespace SysBot.Pokemon
                 int eggTotal = int.Parse(splitTotal[1].Split(' ')[1]) + (pk.IsEgg ? 1 : 0);
                 int starTotal = int.Parse(splitTotal[2].Split(' ')[1]) + (pk.IsShiny && pk.ShinyXor > 0 ? 1 : 0);
                 int squareTotal = int.Parse(splitTotal[3].Split(' ')[1]) + (pk.IsShiny && pk.ShinyXor == 0 ? 1 : 0);
-                int markTotal = int.Parse(splitTotal[4].Split(' ')[1]) + (pk.HasMark() ? 1 : 0);
+                int markTotal = int.Parse(splitTotal[4].Split(' ')[1]) + (mark ? 1 : 0);
 
-                var form = TradeCordHelperUtil.FormOutput(pk.Species, pk.Form, out _);
+                var form = TradeCordHelperUtil<T>.FormOutput(pk.Species, pk.Form, out _);
                 var speciesName = $"{SpeciesName.GetSpeciesNameGeneration(pk.Species, pk.Language, 8)}{form}".Replace(" ", "");
                 var index = content.FindIndex(x => x.Split(':')[0].Equals(speciesName));
 
                 if (index == -1)
-                    content.Add($"{speciesName}: 1, {(pk.IsShiny && pk.ShinyXor > 0 ? 1 : 0)}★, {(pk.IsShiny && pk.ShinyXor == 0 ? 1 : 0)}■, {(pk.HasMark() ? 1 : 0)}🎀, {GetPercent(pokeTotal, 1)}%");
+                    content.Add($"{speciesName}: 1, {(pk.IsShiny && pk.ShinyXor > 0 ? 1 : 0)}★, {(pk.IsShiny && pk.ShinyXor == 0 ? 1 : 0)}■, {(mark ? 1 : 0)}🎀, {GetPercent(pokeTotal, 1)}%");
 
                 var length = index == -1 ? 1 : 0;
                 for (int i = 0; i < content.Count - length; i++)
@@ -129,7 +87,7 @@ namespace SysBot.Pokemon
                         int speciesTotal = int.Parse(sanitized[1]) + 1;
                         int stTotal = int.Parse(sanitized[2]) + (pk.IsShiny && pk.ShinyXor > 0 ? 1 : 0);
                         int sqTotal = int.Parse(sanitized[3]) + (pk.IsShiny && pk.ShinyXor == 0 ? 1 : 0);
-                        int mTotal = int.Parse(sanitized[4]) + (pk.HasMark() ? 1 : 0);
+                        int mTotal = int.Parse(sanitized[4]) + (mark ? 1 : 0);
                         content[i] = $"{speciesName}: {speciesTotal}, {stTotal}★, {sqTotal}■, {mTotal}🎀, {GetPercent(pokeTotal, speciesTotal)}%";
                     }
                     else content[i] = $"{sanitized[0]} {sanitized[1]}, {sanitized[2]}★, {sanitized[3]}■, {sanitized[4]}🎀, {GetPercent(pokeTotal, int.Parse(sanitized[1]))}%";
@@ -156,7 +114,7 @@ namespace SysBot.Pokemon
             return replace.Aggregate(content, (old, cleaned) => old.Replace(cleaned.Key, cleaned.Value)).Split(' ');
         }
 
-        public static PKM TrashBytes(PKM pkm, LegalityAnalysis? la = null)
+        public static T TrashBytes<T>(T pkm, LegalityAnalysis? la = null) where T : PKM, new()
         {
             pkm.Nickname = "KOIKOIKOIKOI";
             pkm.IsNicknamed = true;
@@ -166,10 +124,10 @@ namespace SysBot.Pokemon
             return pkm;
         }
 
-        public static PK8 CherishHandler(MysteryGift mg, ITrainerInfo info)
+        public static T CherishHandler<T>(MysteryGift mg, ITrainerInfo info, int format) where T : PKM, new()
         {
             var mgPkm = mg.ConvertToPKM(info);
-            mgPkm = PKMConverter.IsConvertibleToFormat(mgPkm, 8) ? PKMConverter.ConvertToType(mgPkm, typeof(PK8), out _) : mgPkm;
+            mgPkm = PKMConverter.IsConvertibleToFormat(mgPkm, format) ? PKMConverter.ConvertToType(mgPkm, typeof(T), out _) : mgPkm;
             if (mgPkm != null)
             {
                 mgPkm.SetHandlerandMemory(info);
@@ -193,11 +151,11 @@ namespace SysBot.Pokemon
             {
                 mgPkm.SetRandomIVs(6);
                 var showdown = ShowdownParsing.GetShowdownText(mgPkm);
-                var pk = (PK8)AutoLegalityWrapper.GetLegal(info, new ShowdownSet(showdown), out _);
+                var pk = AutoLegalityWrapper.GetLegal(info, new ShowdownSet(showdown), out _);
                 pk.SetAllTrainerData(info);
-                return pk;
+                return (T)pk;
             }
-            else return (PK8)mgPkm;
+            else return (T)mgPkm;
         }
 
         public static string PokeImg(PKM pkm, bool canGmax, bool fullSize)

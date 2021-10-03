@@ -6,10 +6,11 @@ using System.Linq;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using PKHeX.Core;
 
 namespace SysBot.Pokemon.Discord
 {
-    public class ExtraCommandUtil
+    public class ExtraCommandUtil<T> where T : PKM, new()
     {
         private static readonly Dictionary<ulong, ReactMessageContents> ReactMessageDict = new();
         private static bool DictWipeRunning = false;
@@ -79,23 +80,19 @@ namespace SysBot.Pokemon.Discord
 
         public static async Task TCUserBanned(SocketUser user, SocketGuild guild)
         {
-            if (!TradeCordHelper.TCInitialized)
+            if (!TradeCordHelper<T>.TCInitialized)
                 return;
 
-            var instance = SysCordInstance.Self.Hub.Config;
-            var helper = new TradeCordHelper(instance.TradeCord);
-            var ctx = new TradeCordHelper.TC_CommandContext() { Context = TCCommandContext.DeleteUser, ID = user.Id, Username = user.Username };
+            var instance = SysCord<T>.Runner.Hub.Config;
+            var helper = new TradeCordHelper<T>(instance.TradeCord);
+            var ctx = new TradeCordHelper<T>.TC_CommandContext() { Context = TCCommandContext.DeleteUser, ID = user.Id, Username = user.Username };
             var result = helper.ProcessTradeCord(ctx, new string[] { user.Id.ToString() });
             if (result.Success)
             {
-                var channels = instance.Discord.EchoChannels.Replace(" ", "").Split(',');
-                for (int i = 0; i < channels.Length; i++)
+                var channels = instance.Discord.EchoChannels.List;
+                for (int i = 0; i < channels.Count; i++)
                 {
-                    bool valid = ulong.TryParse(channels[i], out ulong id);
-                    if (!valid)
-                        continue;
-
-                    ISocketMessageChannel channel = (ISocketMessageChannel)guild.Channels.FirstOrDefault(x => x.Id == id);
+                    ISocketMessageChannel channel = (ISocketMessageChannel)guild.Channels.FirstOrDefault(x => x.Id == channels[i].ID);
                     if (channel == default)
                         continue;
 
@@ -107,7 +104,7 @@ namespace SysBot.Pokemon.Discord
 
         public static async Task HandleReactionAsync(Cacheable<IUserMessage, ulong> cachedMsg, ISocketMessageChannel _, SocketReaction reaction)
         {
-            if (!TradeCordHelper.TCInitialized || !reaction.User.IsSpecified)
+            if (!TradeCordHelper<T>.TCInitialized || !reaction.User.IsSpecified)
                 return;
 
             var user = reaction.User.Value;
@@ -201,7 +198,7 @@ namespace SysBot.Pokemon.Discord
                 }
             }
             await msg.AddReactionAsync(new Emoji("❌")).ConfigureAwait(false);
-            TradeCordHelperUtil.MuteList.Add(ctx.User.Id);
+            TradeCordHelperUtil<T>.MuteList.Add(ctx.User.Id);
             return true;
         }
 

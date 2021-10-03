@@ -35,6 +35,18 @@ namespace SysBot.Pokemon
         [Category(TradeConfig), Description("Max amount of time pressing A to wait for a trade to end before trying to exit to overworld.")]
         public int TradeAnimationMaxDelaySeconds { get; set; } = 90; // 150 maybe
 
+        [Category(TradeConfig), Description("Spin while waiting for trade partner.")]
+        public bool SpinTrade { get; set; } = false;
+
+        [Category(TradeConfig), Description("Select default species for \"ItemTrade\", if configured.")]
+        public Species ItemTradeSpecies { get; set; } = Species.None;
+
+        [Category(TradeConfig), Description("Silly, useless feature to post a meme when certain illegal or disallowed trade requests are made.")]
+        public bool Memes { get; set; } = false;
+
+        [Category(TradeConfig), Description("Enter either direct picture or gif links, or file names with extensions. For example, file1.png, file2.jpg, etc.")]
+        public string MemeFileNames { get; set; } = string.Empty;
+
         /// <summary>
         /// Gets a random trade code based on the range settings.
         /// </summary>
