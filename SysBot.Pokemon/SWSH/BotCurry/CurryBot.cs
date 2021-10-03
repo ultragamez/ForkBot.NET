@@ -55,14 +55,8 @@ namespace SysBot.Pokemon
             int berryIndex = await GetBerryIndex(token).ConfigureAwait(false);
             int berryCount = BerryCount;
             int ingredientCount = IngredientCount;
-
-            Log($"Starting main {nameof(CurryBot)} loop.");
             await DoCurryMonEncounter(ingrIndex, berryIndex, berryCount, ingredientCount, token).ConfigureAwait(false);
-            Log($"Ending {nameof(CurryBot)} loop.");
-            await HardStop().ConfigureAwait(false);
         }
-
-        public override async Task HardStop() => await CleanExit(Hub.Config.Trade, CancellationToken.None).ConfigureAwait(false);
 
         private async Task DoCurryMonEncounter(int ingrIndex, int berryIndex, int berryCount, int ingredientCount, CancellationToken token)
         {
@@ -112,39 +106,6 @@ namespace SysBot.Pokemon
                     await Connection.WriteBytesAsync(IngredientPouch, IngredientPouchOffset, token).ConfigureAwait(false);
                     ingredientCount = IngredientCount;
                 }
-            }
-        }
-
-        private async Task ScrollForCamper(CancellationToken token)
-        {
-            Log("Seems like someone is hiding..");
-            await Click(A, 0_050, token).ConfigureAwait(false);
-            for (int scroll = 0; scroll < 12; scroll++)
-            {
-                if (await LairStatusCheck(0xFF4872F9, 0x6B311300, token).ConfigureAwait(false)) // Screen value when camper walks to us and dialogue box pops up
-                    break;
-
-                await SetStick(LEFT, -30_000, 0, 0_450, token).ConfigureAwait(false); // ←
-                await Click(A, 0_050, token).ConfigureAwait(false);
-
-                await SetStick(LEFT, 30_000, 0, 0_450, token).ConfigureAwait(false); // →
-                await Click(A, 0_050, token).ConfigureAwait(false);
-            }
-
-            await SetStick(LEFT, 0, 0, 0_100, token).ConfigureAwait(false);
-            if (await LairStatusCheck(0xFF4872F9, 0x6B311300, token).ConfigureAwait(false))
-                Log("A new camper was found!");
-
-            do
-            {
-                await Click(A, 0_500, token).ConfigureAwait(false);
-            } while (!await LairStatusCheck(0xFF000000, 0x6B311300, token).ConfigureAwait(false));
-
-            if (await LairStatusCheck(0xFF000000, 0x6B311300, token).ConfigureAwait(false))
-            {
-                Log($"Curry #{curryCount} had a new camper join our camp!");
-                await Click(A, 1_000, token).ConfigureAwait(false);
-                await Click(A, 2_000, token).ConfigureAwait(false);
             }
         }
 

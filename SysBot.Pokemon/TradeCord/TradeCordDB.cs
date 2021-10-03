@@ -124,7 +124,7 @@ namespace SysBot.Pokemon
             return user;
         }
 
-        protected T GetLookupAsClassObject<T>(ulong id, string table, string filter = "", bool tableJoin = false)
+        protected A GetLookupAsClassObject<A>(ulong id, string table, string filter = "", bool tableJoin = false)
         {
             var cmd = Connection.CreateCommand();
             cmd.CommandText = $"select * from {table} where {(tableJoin ? "c." : "")}user_id = {id} {filter}";
@@ -145,7 +145,7 @@ namespace SysBot.Pokemon
                 "binary_catches" => CatchPKMReader(reader),
                 _ => throw new NotImplementedException(),
             };
-            return (T)returnObj;
+            return (A)returnObj;
         }
 
         protected void ProcessBulkCommands(List<SQLCommand> cmds, bool delete = false)
