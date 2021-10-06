@@ -608,11 +608,9 @@ namespace SysBot.Pokemon
 
             var la = new LegalityAnalysis(pk);
             if (!la.Valid && result.EvoType == EvolutionType.LevelUpKnowMove || applyMoves)
-            {
                 EdgeCaseRelearnMoves(pk, la);
-                la = new LegalityAnalysis(pk);
-            }
 
+            la = new LegalityAnalysis(pk);
             if (!la.Valid)
             {
                 msg = $"Failed to evolve! Legality report: \n{la.Report()}\n\nWere all evolution requirements and conditions satisfied?";
@@ -711,23 +709,36 @@ namespace SysBot.Pokemon
             return name;
         }
 
-        public bool CanGenerateEgg(TCDaycare dc, ulong userID, out EvoCriteria criteria1, out EvoCriteria criteria2, out int ball1, out int ball2)
+        public bool CanGenerateEgg(ref TCUser user, out EvoCriteria criteria1, out EvoCriteria criteria2, out int ball1, out int ball2, out bool update)
         {
+            update = false;
             criteria1 = criteria2 = new(0, 0);
             ball1 = ball2 = 0;
-            if (dc.Species1 == 0 || dc.Species2 == 0)
+            if (user.Daycare.Species1 == 0 || user.Daycare.Species2 == 0)
                 return false;
 
-            var pk1 = GetLookupAsClassObject<PK8>(userID, "binary_catches", $"and id = {dc.ID1}");
-            var pk2 = GetLookupAsClassObject<PK8>(userID, "binary_catches", $"and id = {dc.ID2}");
-            if (pk1.IsEgg || pk2.IsEgg)
+            var pk1 = GetLookupAsClassObject<T>(user.UserInfo.UserID, "binary_catches", $"and id = {user.Daycare.ID1}");
+            if (pk1.Species == 0)
+            {
+                user.Daycare = new() { Ball2 = user.Daycare.Ball2, Form2 = user.Daycare.Form2, ID2 = user.Daycare.ID2, Shiny2 = user.Daycare.Shiny2, Species2 = user.Daycare.Species2 };
+                update = true;
+            }
+
+            var pk2 = GetLookupAsClassObject<T>(user.UserInfo.UserID, "binary_catches", $"and id = {user.Daycare.ID2}");
+            if (pk2.Species == 0)
+            {
+                user.Daycare = new() { Ball1 = user.Daycare.Ball1, Form1 = user.Daycare.Form1, ID1 = user.Daycare.ID1, Shiny1 = user.Daycare.Shiny1, Species1 = user.Daycare.Species1 };
+                update = true;
+            }
+
+            if (pk1.IsEgg || pk2.IsEgg || user.Daycare.Species1 == 0 || user.Daycare.Species2 == 0)
                 return false;
 
             var tree1 = EvolutionTree.GetEvolutionTree(pk1, 8);
             var tree2 = EvolutionTree.GetEvolutionTree(pk2, 8);
             bool sameTree = tree1.IsSpeciesDerivedFrom(pk1.Species, pk1.Form, pk2.Species, pk2.Form) || tree2.IsSpeciesDerivedFrom(pk2.Species, pk2.Form, pk1.Species, pk1.Form);
             bool breedable = (Breeding.CanHatchAsEgg(pk1.Species) || pk1.Species == 132) && (Breeding.CanHatchAsEgg(pk2.Species) || pk2.Species == 132);
-            if (!sameTree && !breedable)
+            if ((!sameTree && pk1.Species != 132 && pk2.Species != 132) || !breedable)
                 return false;
 
             List<EvoCriteria> criteria = EggEvoCriteria(pk1, pk2);
@@ -741,9 +752,9 @@ namespace SysBot.Pokemon
             return true;
         }
 
-        private List<EvoCriteria> EggEvoCriteria(PKM pk1, PKM pk2)
+        private List<EvoCriteria> EggEvoCriteria(T pk1, T pk2)
         {
-            List<PKM> list = new() { pk1, pk2 };
+            List<T> list = new() { pk1, pk2 };
             List<EvoCriteria> criteriaList = new();
             for (int i = 0; i < list.Count; i++)
             {

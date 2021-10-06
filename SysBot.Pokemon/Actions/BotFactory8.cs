@@ -27,6 +27,8 @@ namespace SysBot.Pokemon
             PokeRoutineType.DenBot => new DenBot(cfg, Hub),
             PokeRoutineType.BoolBot => new BoolBot(cfg, Hub),
             PokeRoutineType.SoJCamp => new SoJCamp(cfg, Hub),
+            PokeRoutineType.CurryBot => new CurryBot(cfg, Hub),
+            PokeRoutineType.RollingRaid => new RollingRaidBot(cfg, Hub),
 
             PokeRoutineType.RemoteControl => new RemoteControlBot(cfg),
             _ => throw new ArgumentException(nameof(cfg.NextRoutineType)),

@@ -298,7 +298,7 @@ namespace SysBot.Pokemon
 
         public PokeMoveInfo.MoveInfoRoot LoadMoves()
         {
-            using Stream stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("SysBot.Pokemon.BotEncounter.BotLair.MoveInfo.json");
+            using Stream stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("SysBot.Pokemon.SWSH.BotLair.MoveInfo.json");
             using TextReader reader = new StreamReader(stream);
             JsonSerializer serializer = new();
             var root = (PokeMoveInfo.MoveInfoRoot?)serializer.Deserialize(reader, typeof(PokeMoveInfo.MoveInfoRoot));
