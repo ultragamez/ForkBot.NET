@@ -517,7 +517,10 @@ namespace SysBot.Pokemon
                 reader.Close();
 
                 if (!wasFixedHT)
+                {
                     LegalityFixPK8();
+                    EggBug();
+                }
             }
 
             return true;
@@ -758,9 +761,11 @@ namespace SysBot.Pokemon
             var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
+                bool write = false;
                 ulong user_id = ulong.Parse(reader["user_id"].ToString());
                 int catch_id = (int)reader["id"];
                 PK8 pk = (PK8?)PKMConverter.GetPKMfromBytes((byte[])reader["data"]) ?? new();
+
                 var la = new LegalityAnalysis(pk);
                 if (!la.Valid)
                 {
@@ -806,7 +811,6 @@ namespace SysBot.Pokemon
                                     }
                                     else pk.SetDefaultNickname(la);
                                 }; break;
-
                         };
                     }
 
@@ -828,14 +832,17 @@ namespace SysBot.Pokemon
                     }
                 }
 
-                var names = new string[] { "@data", "@user_id", "@id" };
-                var obj = new object[] { pk.DecryptedPartyData, user_id, catch_id };
-                cmds.Add(new() { CommandText = "update binary_catches set data = ? where user_id = ? and id = ?", Names = names, Values = obj });
+                if (write)
+                {
+                    var names = new string[] { "@data", "@user_id", "@id" };
+                    var obj = new object[] { pk.DecryptedPartyData, user_id, catch_id };
+                    cmds.Add(new() { CommandText = "update binary_catches set data = ? where user_id = ? and id = ?", Names = names, Values = obj });
 
-                names = new string[] { "@is_shiny", "@ball", "@nickname", "@form", "@is_egg", "@is_event", "@user_id", "@id" };
-                obj = new object[] { pk.IsShiny, (Ball)pk.Ball, pk.Nickname, TradeCordHelperUtil<T>.FormOutput(pk.Species, pk.Form, out _), pk.IsEgg, pk.FatefulEncounter, user_id, catch_id };
-                cmds.Add(new() { CommandText = "update catches set is_shiny = ?, ball = ?, nickname = ?, form = ?, is_egg = ?, is_event = ? where user_id = ? and id = ?", Names = names, Values = obj });
-                updated++;
+                    names = new string[] { "@is_shiny", "@ball", "@nickname", "@form", "@is_egg", "@is_event", "@user_id", "@id" };
+                    obj = new object[] { pk.IsShiny, (Ball)pk.Ball, pk.Nickname, TradeCordHelperUtil<T>.FormOutput(pk.Species, pk.Form, out _), pk.IsEgg, pk.FatefulEncounter, user_id, catch_id };
+                    cmds.Add(new() { CommandText = "update catches set is_shiny = ?, ball = ?, nickname = ?, form = ?, is_egg = ?, is_event = ? where user_id = ? and id = ?", Names = names, Values = obj });
+                    updated++;
+                }
             }
             reader.Close();
 
@@ -854,6 +861,72 @@ namespace SysBot.Pokemon
 
                 cmd.CommandText = $"update legality_fix set fixed = 1 where issue = 'ht_var'";
                 cmd.ExecuteNonQuery();
+            }
+            Base.EchoUtil.Echo($"Scan complete! Updated {updated} records.");
+        }
+
+        private void EggBug()
+        {
+            Base.EchoUtil.Echo("Beginning to scan for species nicknamed \"Egg\". This may take a while.");
+            int updated = 0;
+            List<SQLCommand> cmds = new();
+            var cmd = Connection.CreateCommand();
+            cmd.CommandText = "select * from binary_catches";
+
+            var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                ulong user_id = ulong.Parse(reader["user_id"].ToString());
+                int catch_id = (int)reader["id"];
+                PK8 pk = (PK8?)PKMConverter.GetPKMfromBytes((byte[])reader["data"]) ?? new();
+                var nick = pk.Language switch
+                {
+                    1 => "タマゴ",
+                    3 => "Œuf",
+                    4 => "Uovo",
+                    5 => "Ei",
+                    7 => "Huevo",
+                    8 => "알",
+                    9 or 10 => "蛋",
+                    _ => "Egg",
+                };
+
+                if (pk.Nickname == nick && !pk.IsEgg)
+                {
+                    pk.SetDefaultNickname();
+                    var la = new LegalityAnalysis(pk);
+                    if (la.Valid)
+                    {
+                        var names = new string[] { "@data", "@user_id", "@id" };
+                        var obj = new object[] { pk.DecryptedPartyData, user_id, catch_id };
+                        cmds.Add(new() { CommandText = "update binary_catches set data = ? where user_id = ? and id = ?", Names = names, Values = obj });
+
+                        names = new string[] { "@is_shiny", "@ball", "@nickname", "@form", "@is_egg", "@is_event", "@user_id", "@id" };
+                        obj = new object[] { pk.IsShiny, (Ball)pk.Ball, pk.Nickname, TradeCordHelperUtil<T>.FormOutput(pk.Species, pk.Form, out _), pk.IsEgg, pk.FatefulEncounter, user_id, catch_id };
+                        cmds.Add(new() { CommandText = "update catches set is_shiny = ?, ball = ?, nickname = ?, form = ?, is_egg = ?, is_event = ? where user_id = ? and id = ?", Names = names, Values = obj });
+
+                        names = new string[] { "@name", "@ability", "@user_id", "@id" };
+                        obj = new object[] { pk.Nickname, pk.Ability, user_id, catch_id };
+                        cmds.Add(new() { CommandText = "update buddy set name = ?, ability = ? where user_id = ? and id = ?", Names = names, Values = obj });
+                        updated++;
+                    }
+                    else Base.LogUtil.LogError($"Catch {catch_id} (user {user_id}) is illegal.", "[SQLite]");
+                }
+            }
+            reader.Close();
+
+            if (updated > 0)
+            {
+                using var tran = Connection.BeginTransaction();
+                cmd.Transaction = tran;
+                for (int i = 0; i < cmds.Count; i++)
+                {
+                    cmd.CommandText = cmds[i].CommandText;
+                    var parameters = ParameterConstructor(cmds[i].Names, cmds[i].Values);
+                    cmd.Parameters.AddRange(parameters);
+                    updated += cmd.ExecuteNonQuery();
+                }
+                tran.Commit();
             }
             Base.EchoUtil.Echo($"Scan complete! Updated {updated} records.");
         }

@@ -41,10 +41,58 @@ namespace SysBot.Pokemon
 
         public static void EggTrade<T>(T pk) where T : PKM, new()
         {
-            pk = (T)EncounterEggGenerator.GenerateEggs(pk, pk.Generation).First().ConvertToPKM(AutoLegalityWrapper.GetTrainerInfo(pk.Generation));
-            pk.HT_Name = "Nishikigoi";
+            pk = TrashBytes(pk);
+            pk.IsNicknamed = true;
+            pk.Nickname = pk.Language switch
+            {
+                1 => "タマゴ",
+                3 => "Œuf",
+                4 => "Uovo",
+                5 => "Ei",
+                7 => "Huevo",
+                8 => "알",
+                9 or 10 => "蛋",
+                _ => "Egg",
+            };
+
+            if (pk is PK8 pk8)
+            {
+                pk8.DynamaxLevel = 0;
+                pk8.HT_Language = 0;
+                pk8.HT_Gender = 0;
+                pk8.HT_Memory = 0;
+                pk8.HT_Feeling = 0;
+                pk8.HT_Intensity = 0;
+            }
+
+            pk.IsEgg = true;
+            pk.Egg_Location = 60002;
             pk.MetDate = DateTime.Parse("2020/10/20");
             pk.EggMetDate = pk.MetDate;
+            pk.HeldItem = 0;
+            pk.CurrentLevel = 1;
+            pk.EXP = 0;
+            pk.Met_Level = 1;
+            pk.Met_Location = 30002;
+            pk.CurrentHandler = 0;
+            pk.OT_Friendship = 1;
+            pk.HT_Name = "";
+            pk.HT_Friendship = 0;
+            pk.ClearMemories();
+            pk.StatNature = pk.Nature;
+            pk.EVs = new int[] { 0, 0, 0, 0, 0, 0 };
+            pk.Markings = new int[] { 0, 0, 0, 0, 0, 0, 0, 0 };
+            pk.ClearRecordFlags();
+            pk.ClearRelearnMoves();
+            var la = new LegalityAnalysis(pk);
+            var enc = la.EncounterMatch;
+            pk.CurrentFriendship = enc is EncounterStatic s ? s.EggCycles : pk.PersonalInfo.HatchCycles;
+            pk.RelearnMoves = MoveBreed.GetExpectedMoves(pk.Moves, la.EncounterMatch);
+            pk.Moves = pk.RelearnMoves;
+            pk.Move1_PPUps = pk.Move2_PPUps = pk.Move3_PPUps = pk.Move4_PPUps = 0;
+            pk.SetMaximumPPCurrent(pk.Moves);
+            pk.SetSuggestedHyperTrainingData();
+            pk.SetSuggestedRibbons(la.EncounterMatch);
         }
 
         public static void EncounterLogs<T>(T pk, string filepath = "") where T : PKM, new()
