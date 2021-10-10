@@ -1188,6 +1188,7 @@ namespace SysBot.Pokemon
                         var obj = new object[] { 0, string.Empty, string.Empty, user.UserInfo.UserID };
                         result.SQLCommands.Add(DBCommandConstructor("buddy", "id = ?, name = ?, ability = ?", "where user_id = ?", names, obj, SQLTableContext.Update));
                         result.Message = "Could not find this Pokémon. Clearing buddy data.";
+                        user.Buddy = new();
                         return false;
                     }
 
@@ -1908,6 +1909,7 @@ namespace SysBot.Pokemon
 
                         user.Buddy.Nickname = pk.Nickname;
                         user.Catches[match.ID].Egg = false;
+                        user.Catches[match.ID].Nickname = pk.Nickname;
                     }
                 }
                 else if (pk.CurrentLevel < 100 && result.Poke.Species != 0)

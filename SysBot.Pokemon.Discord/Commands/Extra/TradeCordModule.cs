@@ -652,11 +652,11 @@ namespace SysBot.Pokemon.Discord
             else
             {
                 double status = result.Poke.CurrentFriendship / (double)result.Poke.PersonalInfo.HatchCycles;
-                if (status is >= 0 and <= 0.25)
+                if (status is <= 1 and > 0.75)
                     footerMsg = "It looks as though this Egg will take a long time yet to hatch.";
-                else if (status is > 0.25 and <= 0.5)
+                else if (status is <= 0.75 and > 0.5)
                     footerMsg = "What Pokémon will hatch from this Egg? It doesn't seem close to hatching.";
-                else if (status is > 0.5 and <= 0.75)
+                else if (status is <= 0.5 and > 0.25)
                     footerMsg = "It appears to move occasionally. It may be close to hatching.";
                 else footerMsg = "Sounds can be heard coming from inside! This Egg will hatch soon!";
             }

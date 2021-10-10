@@ -146,52 +146,52 @@ namespace SysBot.Pokemon
                 pkm.SetRandomIVsGO(slotGO.Type.GetMinIV());
             else if (enc is EncounterStatic8N static8N)
                 pkm.SetRandomIVs(static8N.FlawlessIVCount + 1);
-            else if (pkm is PK8 pk8)
+            else if (pkm is PK8 pk8 && enc is IOverworldCorrelation8 ow)
             {
                 var criteria = EncounterCriteria.GetCriteria(template);
                 List<int> IVs = new() { 0, 0, 0, 0, 0, 0 };
                 if (enc is EncounterStatic8 static8)
                 {
-                    if (enc is IOverworldCorrelation8 ow && static8.IsOverworldCorrelation)
+                    if (static8.IsOverworldCorrelation)
                     {
                         for (int i = 0; i < 1000; i++)
                         {
-                            int flawless = static8.FlawlessIVCount;
+                            int flawless = static8.FlawlessIVCount + Random.Next(6 - static8.FlawlessIVCount);
                             while (IVs.FindAll(x => x == 31).Count < flawless)
                                 IVs[Random.Next(IVs.Count)] = 31;
 
-                            pkm.IVs = new int[] { IVs[0], IVs[1], IVs[2], IVs[3], IVs[4], IVs[5] };
-                            var encFlawless = Overworld8Search.GetFlawlessIVCount(enc, pkm.IVs, out uint seed);
-                            APILegality.FindWildPIDIV8(pk8, shiny, flawless, seed);
-                            if (ow.IsOverworldCorrelationCorrect(pk8))
-                                break;
-                            else IVs = new() { 0, 0, 0, 0, 0, 0 };
-                        }
-                    }
-                    else pkm.SetRandomIVs(Random.Next(static8.FlawlessIVCount, 7));
-                }
-                else if (enc is EncounterSlot8 slot8)
-                {
-                    if (enc is IOverworldCorrelation8 ow && ow.GetRequirement(pkm) == OverworldCorrelation8Requirement.MustHave)
-                    {
-                        for (int i = 0; i < 1000; i++)
-                        {
-                            while (IVs.FindAll(x => x == 31).Count < 4)
-                                IVs[Random.Next(IVs.Count)] = 31;
-
-                            pkm.IVs = new int[] { IVs[0], IVs[1], IVs[2], IVs[3], IVs[4], IVs[5] };
-                            var encFlawless = Overworld8Search.GetFlawlessIVCount(enc, pkm.IVs, out uint seed);
+                            pk8.IVs = new int[] { IVs[0], IVs[1], IVs[2], IVs[3], IVs[4], IVs[5] };
+                            var encFlawless = Overworld8Search.GetFlawlessIVCount(enc, pk8.IVs, out uint seed);
                             APILegality.FindWildPIDIV8(pk8, shiny, encFlawless, seed);
                             if (ow.IsOverworldCorrelationCorrect(pk8))
                                 break;
                             else IVs = new() { 0, 0, 0, 0, 0, 0 };
                         }
                     }
-                    else pkm.SetRandomIVs(4);
+                    else pk8.SetRandomIVs(Random.Next(static8.FlawlessIVCount, 7));
+                }
+                else if (enc is EncounterSlot8 slot8)
+                {
+                    if (ow.GetRequirement(pkm) == OverworldCorrelation8Requirement.MustHave)
+                    {
+                        for (int i = 0; i < 1000; i++)
+                        {
+                            while (IVs.FindAll(x => x == 31).Count < 4)
+                                IVs[Random.Next(IVs.Count)] = 31;
+
+                            pk8.IVs = new int[] { IVs[0], IVs[1], IVs[2], IVs[3], IVs[4], IVs[5] };
+                            var encFlawless = Overworld8Search.GetFlawlessIVCount(enc, pk8.IVs, out uint seed);
+                            APILegality.FindWildPIDIV8(pk8, shiny, encFlawless, seed);
+                            if (ow.IsOverworldCorrelationCorrect(pk8))
+                                break;
+                            else IVs = new() { 0, 0, 0, 0, 0, 0 };
+                        }
+                    }
+                    else pk8.SetRandomIVs(4);
                 }
             }
             else if (enc.Version != GameVersion.GO && enc.Generation >= 6)
-                pkm.SetRandomIVs(4);
+                pkm.SetRandomIVs(enc.EggEncounter ? Random.Next(7) : 4);
 
             BallApplicator.ApplyBallLegalRandom(pkm);
             if (pkm.Ball == 16)
@@ -244,7 +244,7 @@ namespace SysBot.Pokemon
             pk.SetAbilityIndex(Random.Next(3));
             pk.Nature = Random.Next(25);
             pk.StatNature = pk.Nature;
-            pk.IVs = pk.SetRandomIVs(4);
+            pk.IVs = pk.SetRandomIVs(Random.Next(2, 7));
             return pk;
         }
 
