@@ -785,7 +785,7 @@ namespace SysBot.Pokemon
                     return false;
                 }
 
-                result.EmbedName = $"{(deposit ? " Deposit" : " Withdraw")}";
+                result.EmbedName += $"{(deposit ? " Deposit" : " Withdraw")}";
                 result.Message = deposit && found ? $"Deposited your {(match.Shiny ? "★" : "")}{match.Species}{match.Form}({match.Ball}) to daycare!" : $"You withdrew your {speciesString} from the daycare.";
                 return true;
             }
@@ -1902,9 +1902,9 @@ namespace SysBot.Pokemon
                         var objH = new object[] { pk.Nickname, user.UserInfo.UserID };
                         result.SQLCommands.Add(DBCommandConstructor("buddy", "name = ?", "where user_id = ?", namesH, objH, SQLTableContext.Update));
 
-                        namesH = new string[] { "@is_egg", "@user_id", "@id" };
-                        objH = new object[] { 0, user.UserInfo.UserID, match.ID };
-                        result.SQLCommands.Add(DBCommandConstructor("catches", "is_egg = ?", "where user_id = ? and id = ?", namesH, objH, SQLTableContext.Update));
+                        namesH = new string[] { "@nickname", "@is_egg", "@user_id", "@id" };
+                        objH = new object[] { pk.Nickname, 0, user.UserInfo.UserID, match.ID };
+                        result.SQLCommands.Add(DBCommandConstructor("catches", "nickname = ?, is_egg = ?", "where user_id = ? and id = ?", namesH, objH, SQLTableContext.Update));
 
                         user.Buddy.Nickname = pk.Nickname;
                         user.Catches[match.ID].Egg = false;

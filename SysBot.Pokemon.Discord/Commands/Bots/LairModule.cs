@@ -113,7 +113,7 @@ namespace SysBot.Pokemon.Discord
 
         private async Task LairEmbedLoop(List<ulong> channels)
         {
-            var ping = SysCord<T>.Runner.Hub.Config.StopConditions.MatchFoundEchoMention.Replace("<@!", "").Replace(">", "");
+            var ping = SysCord<T>.Runner.Hub.Config.StopConditions.MatchFoundEchoMention;
             while (!LairBotUtil.EmbedSource.IsCancellationRequested)
             {
                 if (LairBotUtil.EmbedMon.Item1 != null)
@@ -124,7 +124,8 @@ namespace SysBot.Pokemon.Discord
                     var author = new EmbedAuthorBuilder { IconUrl = ballUrl, Name = LairBotUtil.EmbedMon.Item2 ? "Legendary Caught!" : "Result found, but not quite Legendary!" };
                     var embed = new EmbedBuilder { Color = Color.Blue, ThumbnailUrl = url }.WithAuthor(author).WithDescription(ShowdownParsing.GetShowdownText(LairBotUtil.EmbedMon.Item1));
 
-                    if (ulong.TryParse(ping, out ulong usr))
+                    var userStr = ping.Replace("<@", "").Replace(">", "");
+                    if (ulong.TryParse(userStr, out ulong usr))
                     {
                         var user = await Context.Client.Rest.GetUserAsync(usr).ConfigureAwait(false);
                         embed.WithFooter(x => { x.Text = $"Requested by: {user}"; });

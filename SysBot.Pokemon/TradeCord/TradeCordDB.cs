@@ -509,6 +509,9 @@ namespace SysBot.Pokemon
                 cmd.CommandText = "insert into legality_fix(issue,fixed) select 'ht_var', 0 where not exists(select 1 from legality_fix where issue = 'ht_var')";
                 cmd.ExecuteNonQuery();
 
+                cmd.CommandText = "insert into legality_fix(issue,fixed) select 'egg_bug', 0 where not exists(select 1 from legality_fix where issue = 'egg_bug')";
+                cmd.ExecuteNonQuery();
+
                 bool wasFixedHT = false;
                 cmd.CommandText = "select * from legality_fix where issue = 'ht_var'";
                 var reader = cmd.ExecuteReader();
@@ -517,10 +520,17 @@ namespace SysBot.Pokemon
                 reader.Close();
 
                 if (!wasFixedHT)
-                {
                     LegalityFixPK8();
+
+                bool wasFixedEgg = false;
+                cmd.CommandText = "select * from legality_fix where issue = 'egg_bug'";
+                reader = cmd.ExecuteReader();
+                if (reader.Read())
+                    wasFixedEgg = (int)reader["fixed"] == 1;
+                reader.Close();
+
+                if (!wasFixedEgg)
                     EggBug();
-                }
             }
 
             return true;
@@ -849,13 +859,13 @@ namespace SysBot.Pokemon
             if (updated > 0)
             {
                 using var tran = Connection.BeginTransaction();
-                cmd.Transaction = tran;
                 for (int i = 0; i < cmds.Count; i++)
                 {
+                    cmd.Transaction = tran;
                     cmd.CommandText = cmds[i].CommandText;
                     var parameters = ParameterConstructor(cmds[i].Names, cmds[i].Values);
                     cmd.Parameters.AddRange(parameters);
-                    updated += cmd.ExecuteNonQuery();
+                    cmd.ExecuteNonQuery();
                 }
                 tran.Commit();
 
@@ -868,16 +878,17 @@ namespace SysBot.Pokemon
         private void EggBug()
         {
             Base.EchoUtil.Echo("Beginning to scan for species nicknamed \"Egg\". This may take a while.");
-            int updated = 0;
             List<SQLCommand> cmds = new();
-            var cmd = Connection.CreateCommand();
-            cmd.CommandText = "select * from binary_catches";
+            int updated = 0;
 
+            var cmd = Connection.CreateCommand();
+            cmd.CommandText = "select * from binary_catches b inner join catches c on b.user_id = c.user_id and b.id = c.id";
             var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
                 ulong user_id = ulong.Parse(reader["user_id"].ToString());
                 int catch_id = (int)reader["id"];
+                string nickname = reader["nickname"].ToString();
                 PK8 pk = (PK8?)PKMConverter.GetPKMfromBytes((byte[])reader["data"]) ?? new();
                 var nick = pk.Language switch
                 {
@@ -891,9 +902,10 @@ namespace SysBot.Pokemon
                     _ => "Egg",
                 };
 
-                if (pk.Nickname == nick && !pk.IsEgg)
+                if ((pk.Nickname == nick || nickname == nick || nickname == "Egg") && !pk.IsEgg)
                 {
-                    pk.SetDefaultNickname();
+                    pk.IsNicknamed = false;
+                    pk.Nickname = SpeciesName.GetSpeciesNameGeneration(pk.Species, pk.Language, 8);
                     var la = new LegalityAnalysis(pk);
                     if (la.Valid)
                     {
@@ -901,9 +913,9 @@ namespace SysBot.Pokemon
                         var obj = new object[] { pk.DecryptedPartyData, user_id, catch_id };
                         cmds.Add(new() { CommandText = "update binary_catches set data = ? where user_id = ? and id = ?", Names = names, Values = obj });
 
-                        names = new string[] { "@is_shiny", "@ball", "@nickname", "@form", "@is_egg", "@is_event", "@user_id", "@id" };
-                        obj = new object[] { pk.IsShiny, (Ball)pk.Ball, pk.Nickname, TradeCordHelperUtil<T>.FormOutput(pk.Species, pk.Form, out _), pk.IsEgg, pk.FatefulEncounter, user_id, catch_id };
-                        cmds.Add(new() { CommandText = "update catches set is_shiny = ?, ball = ?, nickname = ?, form = ?, is_egg = ?, is_event = ? where user_id = ? and id = ?", Names = names, Values = obj });
+                        names = new string[] { "@nickname", "@user_id", "@id" };
+                        obj = new object[] { pk.Nickname, user_id, catch_id };
+                        cmds.Add(new() { CommandText = "update catches set nickname = ? where user_id = ? and id = ?", Names = names, Values = obj });
 
                         names = new string[] { "@name", "@ability", "@user_id", "@id" };
                         obj = new object[] { pk.Nickname, pk.Ability, user_id, catch_id };
@@ -918,15 +930,19 @@ namespace SysBot.Pokemon
             if (updated > 0)
             {
                 using var tran = Connection.BeginTransaction();
-                cmd.Transaction = tran;
                 for (int i = 0; i < cmds.Count; i++)
                 {
+                    cmd = Connection.CreateCommand();
+                    cmd.Transaction = tran;
                     cmd.CommandText = cmds[i].CommandText;
                     var parameters = ParameterConstructor(cmds[i].Names, cmds[i].Values);
                     cmd.Parameters.AddRange(parameters);
-                    updated += cmd.ExecuteNonQuery();
+                    cmd.ExecuteNonQuery();
                 }
                 tran.Commit();
+
+                cmd.CommandText = $"update legality_fix set fixed = 1 where issue = 'egg_bug'";
+                cmd.ExecuteNonQuery();
             }
             Base.EchoUtil.Echo($"Scan complete! Updated {updated} records.");
         }

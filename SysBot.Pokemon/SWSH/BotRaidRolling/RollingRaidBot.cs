@@ -55,10 +55,13 @@ namespace SysBot.Pokemon
                 await InitializeHardware(Settings, token).ConfigureAwait(false);
 
                 Log("Reading den data.");
-                await ReadDenData(token).ConfigureAwait(false);
+                bool startRoutine = await ReadDenData(token).ConfigureAwait(false);
 
-                Log("Starting main RollingRaidBot loop.");
-                await InnerLoop(token).ConfigureAwait(false);
+                if (startRoutine)
+                {
+                    Log("Starting main RollingRaidBot loop.");
+                    await InnerLoop(token).ConfigureAwait(false);
+                }
             }
 #pragma warning disable CA1031 // Do not catch general exception types
             catch (Exception e)
@@ -79,6 +82,9 @@ namespace SysBot.Pokemon
                 addFriends = false;
                 deleteFriends = false;
 
+                if (await CheckIfDayRolled(token).ConfigureAwait(false))
+                    return;
+
                 // If they set this to 0, they want to add and remove friends before hosting any raids.
                 if (Settings.InitialRaidsToHost == 0 && encounterCount == 0)
                 {
@@ -97,9 +103,6 @@ namespace SysBot.Pokemon
                     }
                 }
 
-                if (await CheckIfDayRolled(token).ConfigureAwait(false))
-                    return;
-
                 encounterCount++;
 
                 // Check if we're scheduled to delete or add friends after this raid is hosted.
@@ -109,12 +112,13 @@ namespace SysBot.Pokemon
                     if (Settings.NumberFriendsToAdd > 0 && Settings.RaidsBetweenAddFriends > 0)
                         addFriends = (encounterCount - Settings.InitialRaidsToHost) % Settings.RaidsBetweenAddFriends == 0;
                     if (Settings.NumberFriendsToDelete > 0 && Settings.RaidsBetweenDeleteFriends > 0)
-                        deleteFriends = (encounterCount - Settings.InitialRaidsToHost) % Settings.RaidsBetweenDeleteFriends ==
-                                        0;
+                        deleteFriends = (encounterCount - Settings.InitialRaidsToHost) % Settings.RaidsBetweenDeleteFriends == 0;
                 }
 
                 int code = Settings.GetRandomRaidCode();
-                await AutoRollDen(code, token).ConfigureAwait(false);
+                bool continueRoutine = await AutoRollDen(code, token).ConfigureAwait(false);
+                if (!continueRoutine)
+                    return;
 
                 Log($"Raid host {encounterCount} finished.");
                 Settings.AddCompletedRaids();
@@ -130,32 +134,44 @@ namespace SysBot.Pokemon
             await CleanExit(Settings, CancellationToken.None).ConfigureAwait(false);
         }
 
-        private async Task AutoRollDen(int code, CancellationToken token)
+        private async Task<bool> AutoRollDen(int code, CancellationToken token)
         {
-            for (int i = 0; i < Settings.DaysToRoll; i++)
+            if (!softLock && !hardLock)
             {
-                await DaySkip(token).ConfigureAwait(false);
-                await Task.Delay(0_500 + Settings.DateAdvanceDelay, token).ConfigureAwait(false);
-                Log($"Roll {i + 1}...");
-                if (i == Settings.DaysToRoll - 1)
-                    await ResetTime(token).ConfigureAwait(false);
+                for (int i = 0; i < Settings.DaysToRoll; i++)
+                {
+                    await DaySkip(token).ConfigureAwait(false);
+                    await Task.Delay(0_500 + Settings.DateAdvanceDelay, token).ConfigureAwait(false);
+                    Log($"Roll {i + 1}...");
+                    if (i == Settings.DaysToRoll - 1)
+                        await ResetTime(token).ConfigureAwait(false);
+                }
+
+                if (Settings.DaysToRoll > 0)
+                {
+                    for (int i = 0; i < 2; i++)
+                        await Click(A, 1_000 + Hub.Config.Timings.ExtraTimeAButtonClickAR, token).ConfigureAwait(false);
+                    await Click(A, 2_000 + Hub.Config.Timings.ExtraTimeLoadLobbyAR, token).ConfigureAwait(false);
+
+                    for (int i = 0; i < 3; i++)
+                        await Click(B, 0_300, token).ConfigureAwait(false);
+                }
+
+                await CheckDen(token).ConfigureAwait(false);
             }
 
-            if (Settings.DaysToRoll > 0)
+            bool rehost = await HostRaidAsync(code, token).ConfigureAwait(false);
+            while (rehost)
             {
-                for (int i = 0; i < 2; i++)
-                    await Click(A, 1_000 + Hub.Config.Timings.ExtraTimeAButtonClickAR, token).ConfigureAwait(false);
-                await Click(A, 2_000 + Hub.Config.Timings.ExtraTimeLoadLobbyAR, token).ConfigureAwait(false);
+                if (await CheckIfDayRolled(token).ConfigureAwait(false))
+                    return false;
 
-                for (int i = 0; i < 3; i++)
-                    await Click(B, 0_300, token).ConfigureAwait(false);
+                rehost = await HostRaidAsync(code, token).ConfigureAwait(false);
             }
-
-            await CheckDen(token).ConfigureAwait(false);
-            await HostRaidAsync(code, token).ConfigureAwait(false);
+            return true;
         }
 
-        private async Task HostRaidAsync(int code, CancellationToken token)
+        private async Task<bool> HostRaidAsync(int code, CancellationToken token)
         {
             // Connect to Y-Comm
             await EnsureConnectedToYComm(Hub.Config, token).ConfigureAwait(false);
@@ -219,7 +235,10 @@ namespace SysBot.Pokemon
                 await Click(A, 1_000, token).ConfigureAwait(false);
             }
             else if (!airplaneUsable && softLock) // Don't waste time and don't risk losing soft lock; re-host.
-                await AirplaneLobbyExit(code, token).ConfigureAwait(false);
+            {
+                await AirplaneLobbyExit(token).ConfigureAwait(false);
+                return true;
+            }
 
             /* Press A and check if we entered a raid.  If other users don't lock in,
                it will automatically start once the timer runs out. If we don't make it into
@@ -230,7 +249,10 @@ namespace SysBot.Pokemon
                 timetojoinraid -= 0_500;
 
                 if (await IsOnOverworld(Hub.Config, token).ConfigureAwait(false) && softLock) // If overworld, lobby disbanded.
-                    await AirplaneLobbyRecover(code, token).ConfigureAwait(false);
+                {
+                    await AirplaneLobbyRecover(token).ConfigureAwait(false);
+                    return true;
+                }
             }
 
             for (int i = 0; i < 4; i++)
@@ -238,6 +260,7 @@ namespace SysBot.Pokemon
 
             Log("Finishing raid routine.");
             await Task.Delay(1_000 + Hub.Config.Timings.ExtraTimeEndRaid, token).ConfigureAwait(false);
+            return false;
         }
 
         private async Task<bool> GetRaidPartyReady(CancellationToken token)
@@ -437,7 +460,7 @@ namespace SysBot.Pokemon
                 return;
             }
 
-            await Task.Delay(5_000 + Hub.Config.Timings.AirplaneConnectionFreezeDelay).ConfigureAwait(false);
+            await Task.Delay(5_000 + Hub.Config.Timings.AirplaneConnectionFreezeDelay, token).ConfigureAwait(false);
             if (addFriends || deleteFriends)
             {
                 await Click(HOME, 4_000, token).ConfigureAwait(false);
@@ -447,7 +470,7 @@ namespace SysBot.Pokemon
             Log("Back in the overworld!");
         }
 
-        private async Task AirplaneLobbyExit(int code, CancellationToken token)
+        private async Task AirplaneLobbyExit(CancellationToken token)
         {
             Log("No players readied up in time; exiting lobby...");
             airplaneUsable = false;
@@ -472,10 +495,9 @@ namespace SysBot.Pokemon
                 await Click(HOME, 2_000, token).ConfigureAwait(false);
             }
             Log("Back in the overworld! Re-hosting the raid.");
-            await HostRaidAsync(code, token).ConfigureAwait(false);
         }
 
-        private async Task AirplaneLobbyRecover(int code, CancellationToken token)
+        private async Task AirplaneLobbyRecover(CancellationToken token)
         {
             airplaneUsable = false;
             for (int i = 0; i < 4; i++)
@@ -484,17 +506,13 @@ namespace SysBot.Pokemon
             Log("Lobby disbanded! Recovering...");
             await Task.Delay(3_000).ConfigureAwait(false); // Wait in case we entered lobby again due to A spam.
             if (await IsOnOverworld(Hub.Config, token).ConfigureAwait(false)) // If still on Overworld, we don't need to do anything special.
-            {
                 Log("Re-hosting the raid.");
-                await HostRaidAsync(code, token).ConfigureAwait(false);
-            }
             else
             {
                 await ToggleAirplane(0, token).ConfigureAwait(false); // We could be in lobby, or have invited others, or in a box. Conflicts with ldn_mitm, but we don't need it anyways.
                 while (!await IsOnOverworld(Hub.Config, token).ConfigureAwait(false))
                     await Click(B, 0_500, token).ConfigureAwait(false); // If we airplaned, need to clear errors and leave a box if we were stuck.
                 Log("Back in the overworld! Re-hosting the raid.");
-                await HostRaidAsync(code, token).ConfigureAwait(false);
             }
         }
 
@@ -509,19 +527,14 @@ namespace SysBot.Pokemon
 
         private async Task<bool> CheckIfDayRolled(CancellationToken token)
         {
-            if (!Settings.RolloverPrevention)
+            if (!Settings.RolloverPrevention || encounterCount == 0)
                 return false;
 
-            var denData = await Connection.ReadBytesAsync(DenUtil.GetDenOffset(Settings.DenID, Settings.DenType, out _), 0x18, token).ConfigureAwait(false);
-            var den = new RaidSpawnDetail(denData, 0);
-            if (!den.WattsHarvested)
+            await Task.Delay(2_000, token).ConfigureAwait(false);
+            var denData = await Connection.ReadBytesAsync(denOfs, 0x18, token).ConfigureAwait(false);
+            RaidInfo.Den = new RaidSpawnDetail(denData, 0);
+            if (!RaidInfo.Den.WattsHarvested)
             {
-                if (encounterCount == 0)
-                {
-                    Log("For correct operation, start the bot with Watts cleared. If Watts are cleared and you see this message, make sure you've entered the correct den ID.");
-                    return true;
-                }
-
                 softLock = false;
                 Log("Watts appeared in den. Correcting for rollover...");
                 await Click(B, 0_250, token).ConfigureAwait(false);
@@ -531,14 +544,15 @@ namespace SysBot.Pokemon
                 Log("Time sync turned off.");
                 await StartGame(Hub.Config, token).ConfigureAwait(false);
 
-                den = new RaidSpawnDetail(denData, 0);
-                if (den.WattsHarvested)
+                denData = await Connection.ReadBytesAsync(denOfs, 0x18, token).ConfigureAwait(false);
+                RaidInfo.Den = new RaidSpawnDetail(denData, 0);
+                if (RaidInfo.Den.WattsHarvested)
                 {
                     await SaveGame(Hub.Config, token).ConfigureAwait(false);
                     Log("Turning time sync back on...");
                     await RolloverCorrection(token).ConfigureAwait(false);
                     Log("Rollover correction complete, resuming hosting routine.");
-                    await Task.Delay(2_000).ConfigureAwait(false);
+                    await Task.Delay(2_000, token).ConfigureAwait(false);
                     return false;
                 }
                 Log("Failed to clear Watts, stopping execution...");
@@ -589,7 +603,7 @@ namespace SysBot.Pokemon
         private async Task CheckDen(CancellationToken token)
         {
             while (!await IsOnOverworld(Hub.Config, token).ConfigureAwait(false))
-                await Task.Delay(0_500).ConfigureAwait(false);
+                await Task.Delay(0_500, token).ConfigureAwait(false);
 
             var denData = await Connection.ReadBytesAsync(denOfs, 0x18, token).ConfigureAwait(false);
             RaidInfo.Den = new RaidSpawnDetail(denData, 0);
@@ -606,38 +620,55 @@ namespace SysBot.Pokemon
             var list = forms.ToList();
             int index = list.IndexOf(list.Find(x => x.ToLower() == Settings.FormLock.ToLower()));
             bool formLock = Settings.FormLock == string.Empty || ((RaidInfo.Den.IsEvent ? (int)RaidInfo.RaidDistributionEncounter.AltForm : (int)RaidInfo.RaidEncounter.AltForm) == index);
+            string speciesStr = $"{species}{forms[RaidInfo.Den.IsEvent ? RaidInfo.RaidDistributionEncounter.AltForm : RaidInfo.RaidEncounter.AltForm]}{(gmax ? "-Gmax" : "")}";
+
             softLock = Settings.GmaxLock == gmax && species == Settings.SoftLockSpecies && formLock && Config.Connection.Protocol == SwitchProtocol.USB && Settings.AirplaneQuitout && Settings.HardLockSpecies == Species.None;
             hardLock = Settings.GmaxLock == gmax && species == Settings.HardLockSpecies && formLock && Settings.SoftLockSpecies == Species.None;
 
             raidBossSpecies = RaidInfo.Den.IsEvent ? (int)RaidInfo.RaidDistributionEncounter.Species : (int)RaidInfo.RaidEncounter.Species;
             if (softLock || hardLock)
-                EchoUtil.Echo($"{(softLock ? "Soft" : "Hard")} locking on {(gmax ? species + "-Gmax" : species)}.");
-            else EchoUtil.Echo($"Rolling complete. Raid for {(gmax ? species + "-Gmax" : species)} will be going up shortly!");
+                EchoUtil.Echo($"{(softLock ? "Soft" : "Hard")} locking on {speciesStr}.");
+            else EchoUtil.Echo($"Rolling complete. Raid for {speciesStr} will be going up shortly!");
 
             if (hardLock)
                 await SaveGame(Hub.Config, token).ConfigureAwait(false);
         }
 
-        private async Task ReadDenData(CancellationToken token)
+        private async Task<bool> ReadDenData(CancellationToken token)
         {
             denOfs = DenUtil.GetDenOffset(Settings.DenID, Settings.DenType, out uint denID);
             RaidInfo.DenID = denID;
 
             var denData = await Connection.ReadBytesAsync(denOfs, 0x18, token).ConfigureAwait(false);
             RaidInfo.Den = new RaidSpawnDetail(denData, 0);
-
-            if (RaidInfo.Den.IsEvent)
+            if (!RaidInfo.Den.WattsHarvested)
             {
-                var eventOfs = DenUtil.GetEventDenOffset((int)Hub.Config.ConsoleLanguage, RaidInfo.DenID, Settings.DenType, out _);
-                var eventData = await Connection.ReadBytesAsync(eventOfs, 0x23D4, token).ConfigureAwait(false);
-
-                RaidInfo.RaidDistributionEncounter = DenUtil.GetSpawnEvent(RaidInfo, eventData, out FlatbuffersResource.NestHoleDistributionEncounter8Table table);
-                RaidInfo.RaidDistributionEncounterTable = table;
+                Log("For correct operation, start the bot with Watts cleared. If Watts are cleared and you see this message, make sure you've entered the correct den ID. Stopping routine...");
+                return false;
             }
-            else
+
+            try
             {
-                RaidInfo.RaidEncounter = DenUtil.GetSpawn(RaidInfo, out FlatbuffersResource.EncounterNest8Table table);
-                RaidInfo.RaidEncounterTable = table;
+                if (RaidInfo.Den.IsEvent)
+                {
+                    var eventOfs = DenUtil.GetEventDenOffset((int)Hub.Config.ConsoleLanguage, RaidInfo.DenID, Settings.DenType, out _);
+                    var eventData = await Connection.ReadBytesAsync(eventOfs, 0x23D4, token).ConfigureAwait(false);
+
+                    RaidInfo.RaidDistributionEncounter = DenUtil.GetSpawnEvent(RaidInfo, eventData, out FlatbuffersResource.NestHoleDistributionEncounter8Table table);
+                    RaidInfo.RaidDistributionEncounterTable = table;
+                }
+                else
+                {
+                    RaidInfo.RaidEncounter = DenUtil.GetSpawn(RaidInfo, out FlatbuffersResource.EncounterNest8Table table);
+                    RaidInfo.RaidEncounterTable = table;
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                var msg = $"{ex.Message}\n{ex.StackTrace}\n{ex.InnerException}";
+                Log($"Error ocurred while reading raid encounter tables for {(RaidInfo.Den.IsEvent ? "event den" : "den")}:\nID/Type: {Settings.DenID}/{Settings.DenType}\n\n{msg}");
+                return false;
             }
         }
     }

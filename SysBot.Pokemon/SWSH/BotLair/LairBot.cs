@@ -496,9 +496,9 @@ namespace SysBot.Pokemon
                     else
                     {
                         if (caughtLegend)
-                            EchoUtil.Echo($"{Hub.Config.StopConditions.MatchFoundEchoMention}Shiny Legendary found!\nEncounter {LairEncounterCount}. Adventure {AdventureCounts.AdventureCount}.{Environment.NewLine}{ShowdownParsing.GetShowdownText(pk)}{Environment.NewLine}");
+                            EchoUtil.Echo($"{Hub.Config.StopConditions.MatchFoundEchoMention} Shiny Legendary found!\nEncounter {LairEncounterCount}. Adventure {AdventureCounts.AdventureCount}.{Environment.NewLine}{ShowdownParsing.GetShowdownText(pk)}{Environment.NewLine}");
                         else if (caughtRegular)
-                            EchoUtil.Echo($"{Hub.Config.StopConditions.MatchFoundEchoMention}Found a shiny, but it's not quite legendary...\nEncounter {LairEncounterCount}. Adventure {AdventureCounts.AdventureCount}.{Environment.NewLine}{ShowdownParsing.GetShowdownText(pk)}{Environment.NewLine}");
+                            EchoUtil.Echo($"{Hub.Config.StopConditions.MatchFoundEchoMention} Found a shiny, but it's not quite legendary...\nEncounter {LairEncounterCount}. Adventure {AdventureCounts.AdventureCount}.{Environment.NewLine}{ShowdownParsing.GetShowdownText(pk)}{Environment.NewLine}");
                     }
                 }
             }
