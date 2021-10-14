@@ -43,7 +43,7 @@ namespace SysBot.Pokemon
         [Category(Raid), Description("[RaidBot] Extra time in milliseconds to wait after deleting a friend.")]
         public int ExtraTimeDeleteFriend { get; set; } = 0;
 
-        [Category(Raid), Description("[RollingRaidBot] Extra time in milliseconds to wait to toggle airplane mode.")]
+        [Category(Raid), Description("[RollingRaidBot] Extra time in milliseconds to wait before toggling airplane mode.")]
         public int ExtraTimeAirplane { get; set; } = 0;
 
         [Category(Raid), Description("[RollingRaidBot] Time in milliseconds to wait for game to unfreeze after toggling airplane mode and YComm state to refresh.")]

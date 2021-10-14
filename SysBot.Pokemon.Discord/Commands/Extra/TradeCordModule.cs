@@ -997,6 +997,11 @@ namespace SysBot.Pokemon.Discord
                 msg = "Command ignored due to suspicion of you running a script. Contact the bot owner if this is a false-positive.";
                 return false;
             }
+            else if (!Hub.Config.Discord.TradeCordChannels.Contains(Context.Channel.Id))
+            {
+                msg = "You're typing in the wrong channel!";
+                return false;
+            }
 
             if (!Hub.Config.Legality.AllowBatchCommands)
                 Hub.Config.Legality.AllowBatchCommands = true;

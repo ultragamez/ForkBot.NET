@@ -904,18 +904,18 @@ namespace SysBot.Pokemon
 
                 if ((int)settings.PokeEventType <= 17)
                 {
-                    var temp = TradeCordPK(Rng.SpeciesRNG);
-                    for (int i = 0; i < temp.PersonalInfo.FormCount; i++)
+                    FormOutput(Rng.SpeciesRNG, 0, out string[] forms);
+                    for (int i = 0; i < forms.Length; i++)
                     {
-                        temp.Form = i;
-                        var isPresent = PersonalTable.SWSH.GetFormEntry(temp.Species, temp.Form).IsFormWithinRange(i);
+                        var blank = new PK8 { Species = Rng.SpeciesRNG, Form = i };
+                        var isPresent = PersonalTable.SWSH.GetFormEntry(blank.Species, blank.Form).IsFormWithinRange(i);
                         if (!isPresent)
                             continue;
 
-                        var type1 = GameInfo.Strings.Types[temp.PersonalInfo.Type1];
-                        var type2 = GameInfo.Strings.Types[temp.PersonalInfo.Type2];
+                        var type1 = GameInfo.Strings.Types[blank.PersonalInfo.Type1];
+                        var type2 = GameInfo.Strings.Types[blank.PersonalInfo.Type2];
                         type = type1 == eventType ? type1 : type2 == eventType ? type2 : "";
-                        form = type != "" ? temp.Form : -1;
+                        form = type != "" ? blank.Form : -1;
                         if (form != -1)
                             break;
                     }

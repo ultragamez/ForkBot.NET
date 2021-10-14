@@ -539,7 +539,7 @@ namespace SysBot.Pokemon
             {
                 PokeTradeType.Random => await HandleRandomLedy(sav, poke, offered, toSend, partnerID, token).ConfigureAwait(false),
                 PokeTradeType.Clone => await HandleClone(sav, poke, offered, oldEC, token).ConfigureAwait(false),
-                PokeTradeType.FixOT => await HandleFixOT(sav, poke, offered, token).ConfigureAwait(false),
+                PokeTradeType.FixOT => await HandleFixOT(sav, poke, offered, partnerID, token).ConfigureAwait(false),
                 _ => (toSend, PokeTradeResult.Success),
             };
         }
@@ -1032,13 +1032,13 @@ namespace SysBot.Pokemon
             return BitConverter.ToUInt64(data, 0);
         }
 
-        private async Task<(PK8 toSend, PokeTradeResult check)> HandleFixOT(SAV8SWSH sav, PokeTradeDetail<PK8> poke, PK8 offered, CancellationToken token)
+        private async Task<(PK8 toSend, PokeTradeResult check)> HandleFixOT(SAV8SWSH sav, PokeTradeDetail<PK8> poke, PK8 offered, PartnerDataHolder partner, CancellationToken token)
         {
             if (Hub.Config.Discord.ReturnPKMs)
                 poke.SendNotification(this, offered, "Here's what you showed me!");
 
-            var adOT = Regex.Match(offered.OT_Name, @"(YT$)|(YT\w*$)|(Lab$)|(\.\w*)|(TV$)|(PKHeX)|(FB:)|(AuSLove)|(ShinyMart)|(Blainette)|(\ com)|(\ org)|(\ net)|(2DOS3)|(PPorg)|(Tik\wok$)|(YouTube)|(IG:)|(TTV\ )|(Tools)|(JokersWrath)|(bot$)", RegexOptions.IgnoreCase).Value != ""
-                || Regex.Match(offered.Nickname, @"(YT$)|(YT\w*$)|(Lab$)|(\.\w*)|(TV$)|(PKHeX)|(FB:)|(AuSLove)|(ShinyMart)|(Blainette)|(\ com)|(\ org)|(\ net)|(2DOS3)|(PPorg)|(Tik\wok$)|(YouTube)|(IG:)|(TTV\ )|(Tools)|(JokersWrath)|(bot$)", RegexOptions.IgnoreCase).Value != "";
+            var adOT = Regex.Match(offered.OT_Name, @"(YT$)|(YT\w*$)|(Lab$)|(\.\w*$)|(TV$)|(PKHeX)|(FB:)|(AuSLove)|(ShinyMart)|(Blainette)|(\ com)|(\ org)|(\ net)|(2DOS3)|(PPorg)|(Tik\wok$)|(YouTube)|(IG:)|(TTV\ )|(Tools)|(JokersWrath)|(bot$)", RegexOptions.IgnoreCase).Value != ""
+                || Regex.Match(offered.Nickname, @"(YT$)|(YT\w*$)|(Lab$)|(\.\w*$)|(TV$)|(PKHeX)|(FB:)|(AuSLove)|(ShinyMart)|(Blainette)|(\ com)|(\ org)|(\ net)|(2DOS3)|(PPorg)|(Tik\wok$)|(YouTube)|(IG:)|(TTV\ )|(Tools)|(JokersWrath)|(bot$)", RegexOptions.IgnoreCase).Value != "";
 
             var laInit = new LegalityAnalysis(offered);
             if (!adOT && laInit.Valid)
@@ -1057,7 +1057,7 @@ namespace SysBot.Pokemon
                 shiny = $"\nShiny: {(offered.ShinyXor == 0 ? "Square" : offered.IsShiny ? "Star" : "No")}";
             else shiny = "\nShiny: No";
 
-            var name = poke.Trainer.TrainerName;
+            var name = partner.TrainerName;
             var extraInfo = $"OT: {name}{ball}{shiny}";
             var set = ShowdownParsing.GetShowdownText(offered).Split('\n').ToList();
             set.Remove(set.Find(x => x.Contains("Shiny")));
