@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Globalization;
 using System.Collections.Generic;
 using PKHeX.Core;
 using PKHeX.Core.AutoMod;
@@ -154,7 +155,7 @@ namespace SysBot.Pokemon
             }
         }
 
-        private static string GetPercent(int total, int subtotal) => (100.0 * ((double)subtotal / total)).ToString("N2");
+        private static string GetPercent(int total, int subtotal) => (100.0 * ((double)subtotal / total)).ToString("N2", NumberFormatInfo.InvariantInfo);
 
         private static string[] GetSanitizedEncounterLineArray(string content)
         {
