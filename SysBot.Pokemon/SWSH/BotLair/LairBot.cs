@@ -703,9 +703,8 @@ namespace SysBot.Pokemon
             for (int i = 0; i < clicks; i++)
                 await Click(DDOWN, 0_300, token);
 
-            await Click(A, 1_000, token).ConfigureAwait(false);
-            await Click(A, 1_000, token).ConfigureAwait(false);
-            await Click(A, 1_000, token).ConfigureAwait(false);
+            for (int i = 0; i < 6; i++)
+                await Click(A, 0_500, token).ConfigureAwait(false);
         }
 
         private async Task GameRestart(CancellationToken token)

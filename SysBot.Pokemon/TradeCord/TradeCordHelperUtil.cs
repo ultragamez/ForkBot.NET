@@ -597,6 +597,11 @@ namespace SysBot.Pokemon
                 if (pk.Ball == (int)Ball.Sport || (pk.WasEgg && pk.Ball == (int)Ball.Master))
                     pk.SetSuggestedBall(true);
             }
+            else if (pk.Generation < 8)
+            {
+                var sav = new SimpleTrainerInfo() { OT = pk.OT_Name, Gender = pk.OT_Gender, Generation = pk.Version, Language = pk.Language, SID = pk.TrainerSID7, TID = pk.TrainerID7 };
+                pk.SetHandlerandMemory(sav);
+            }
 
             var index = pk.PersonalInfo.GetAbilityIndex(pk.Ability);
             pk.Species = result.EvolvesInto;

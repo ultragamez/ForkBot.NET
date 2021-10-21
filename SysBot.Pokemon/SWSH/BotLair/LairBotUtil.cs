@@ -178,7 +178,7 @@ namespace SysBot.Pokemon
                 var power = Convert.ToDouble(move.Power);
                 bool immune = AbilityImmunity(pk.Ability, lairPk.Ability, types, move.Type, move.MoveID, party);
 
-                var typeMulti = TypeDamageMultiplier(types, (int)move.Type);
+                var typeMulti = move.Category == MoveCategory.Status ? new double[] { 1.0, 1.0 } : TypeDamageMultiplier(types, (int)move.Type);
                 if (typeMulti[0] == 0.0 || typeMulti[1] == 0.0)
                     typeMultiplier = 0.0;
                 else if (typeMulti[0] == 0.5 && typeMulti[1] == 0.5 && types[0] != types[1])
@@ -192,9 +192,7 @@ namespace SysBot.Pokemon
                 else if (typeMulti[0] == 2.0 || typeMulti[1] == 2.0)
                     typeMultiplier = 2.0;
 
-                bool usefulStatus = (!dmax && ((move.MoveID == (int)Move.Toxic && lairPk.Status_Condition != (int)StatusCondition.Poisoned) || move.MoveID == (int)Move.Counter || move.MoveID == (int)Move.LifeDew || 
-                    move.MoveID == (int)Move.WideGuard || (move.MoveID == (int)Move.Yawn && lairPk.Status_Condition != (int)StatusCondition.Asleep))) || (move.MoveID == (int)Move.Protect && dmax);
-                if (immune || (move.Category == MoveCategory.Status && !usefulStatus) || (move.MoveID == (int)Move.DreamEater && lairPk.Status_Condition != (int)StatusCondition.Asleep))
+                if (immune || (move.MoveID == (int)Move.WillOWisp && types.Contains(9)) || (move.MoveID == (int)Move.DreamEater && lairPk.Status_Condition != (int)StatusCondition.Asleep))
                     typeMultiplier = -1.0;
 
                 double target = move.Target switch
@@ -275,6 +273,11 @@ namespace SysBot.Pokemon
                     _ => 1.0,
                 };
 
+                double usefulStatus = 
+                    (!dmax && ((move.MoveID == (int)Move.Toxic && lairPk.Status_Condition != (int)StatusCondition.Poisoned) || move.MoveID == (int)Move.Counter || move.MoveID == (int)Move.LifeDew ||
+                    move.MoveID == (int)Move.WideGuard || (move.MoveID == (int)Move.Yawn && lairPk.Status_Condition != (int)StatusCondition.Asleep)))
+                    || (move.MoveID == (int)Move.Protect && dmax) ? 1.2 : 1.0;
+
                 power *= status * (!dmax && (move.Charge || move.Recharge) ? 0.5 : 1.0);
                 double terrain = 1.0;
                 if (dmax || TerrainDur > 0)
@@ -291,7 +294,7 @@ namespace SysBot.Pokemon
                 }
 
                 power *= terrain;
-                dmgCalc[i] = ((((2 * pk.CurrentLevel / 5) + 2) * power * (effectiveAttack / effectiveDefense) / 50) + 2) * multiplier;
+                dmgCalc[i] = ((((2 * pk.CurrentLevel / 5) + 2) * power * (effectiveAttack / effectiveDefense) / 50) + 2) * multiplier * usefulStatus;
             }
             return dmgCalc;
         }
